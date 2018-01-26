@@ -10,6 +10,7 @@
 
 
 namespace intrinsics {
+
 /**
  * @brief Base class to store intrinsic parameters of camera (e. g. width, height, focal length)
  */
@@ -18,6 +19,13 @@ namespace intrinsics {
     protected:
         unsigned int w_;
         unsigned int h_;
+
+        /**
+         * @brief Equality operator
+         * @param other Instance of intrinsics
+         * @return True if type of other and this the same and their fields are equal
+         */
+        virtual bool isEqual(const IntrinsicsBase &other) const = 0;
 
     public:
         /**
@@ -38,6 +46,7 @@ namespace intrinsics {
         */
         virtual void estimateParameters(estimators::internal::BaseEstimator &estimator) = 0;
 
+
         /**
          * @brief Getter for width of the image
          * @return width of the image
@@ -49,6 +58,13 @@ namespace intrinsics {
          * @return height of the image
          */
         unsigned int getHeight() const;
+
+        /**
+        * @brief Equality operator
+        * @param other Instance of intrinsics
+        * @return True if type of other and this the same and their fields are equal
+        */
+        bool operator==(const IntrinsicsBase &other) const;
 
     };
 
@@ -62,29 +78,43 @@ namespace intrinsics {
         double ppy_;
         double f_;
         Eigen::Matrix<double, N, 1> lambdas_;
+
+        /**
+         * @brief See definition above
+         */
+        bool isEqual(const IntrinsicsBase &other) const override {
+            const auto *other_casted = dynamic_cast<const DivisionModelIntrinsic<N> *>(&other);
+            return other_casted != nullptr && ppx_ == other_casted->getPrincipalPointX() &&
+                   ppy_ == other_casted->getPrincipalPointY() &&
+                   f_ == other_casted->getFocalLength() &&
+                   lambdas_ == other_casted->getDistortionCoefficients();
+        }
+
     public:
         /**
          * @brief Constructor
-         * @param ppx_ X-axis coordinate of principal point
-         * @param ppy_ Y-axis coordinate of principal point
-         * @param f_ Focal length
-         * @param lambdas_ Parameters of division model
+         * @param ppx X-axis coordinate of principal point
+         * @param ppy Y-axis coordinate of principal point
+         * @param f Focal length
+         * @param lambdas Parameters of division model
          */
-        DivisionModelIntrinsic(double f_, const Eigen::Matrix<double, N, 1> &lambdas_, double ppx_ = 0, double ppy_ = 0)
-                : ppx_(ppx_),
-                  ppy_(ppy_),
-                  f_(f_),
-                  lambdas_(lambdas_) {}
+        DivisionModelIntrinsic(const Eigen::Matrix<double, N, 1> &lambdas, unsigned int w = 0, unsigned int h = 0,
+                               double f = 0, double ppx = 0,
+                               double ppy = 0)
+                : IntrinsicsBase(w,h), ppx_(ppx),
+                  ppy_(ppy),
+                  f_(f),
+                  lambdas_(lambdas) {}
 
         /**
          @brief Constructor
-         * @param ppx_ X-axis coordinate of principal point
-         * @param ppy_ Y-axis coordinate of principal point
-         * @param f_ Focal length
+         * @param ppx X-axis coordinate of principal point
+         * @param ppy Y-axis coordinate of principal point
+         * @param f Focal length
          */
-        explicit DivisionModelIntrinsic(unsigned int w_ = 0, unsigned int h_ = 0, double f_ = 0, double ppx_ = 0,
-                                        double ppy_ = 0) : IntrinsicsBase(w_, h_), ppx_(ppx_), ppy_(ppy_),
-                                                           f_(f_) {
+        explicit DivisionModelIntrinsic(unsigned int w = 0, unsigned int h = 0, double f = 0, double ppx = 0,
+                                        double ppy = 0) : IntrinsicsBase(w, h), ppx_(ppx), ppy_(ppy),
+                                                          f_(f) {
             lambdas_.setZero();
         }
 

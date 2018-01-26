@@ -8,6 +8,7 @@
 #include <memory>
 #include <utility>
 #include "Sophus/sophus/so3.hpp"
+#include "Sophus/sophus/se3.hpp"
 #include "Camera_Intrinsics.h"
 
 namespace internal_scene {
@@ -55,6 +56,14 @@ namespace internal_scene {
         /**
          * @brief Getter for intrinsic parameters
          * @return Pointer to intrinsics
+         */
+        const std::shared_ptr<const IntrinsicsModel> getIntrinsicsPointer() const {
+            return *intrinsics_;
+        }
+
+        /**
+         * @brief Getter for intrinsic parameters
+         * @return Intrinsic object
          */
         const IntrinsicsModel &getIntrinsics() const {
             return *intrinsics_;

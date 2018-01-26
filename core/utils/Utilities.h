@@ -17,6 +17,8 @@ namespace utils {
     template<typename Scalar = double, int RowsAtCompileTime = Eigen::Dynamic, int ColsAtCompileTime = Eigen::Dynamic>
     inline bool loadMatrix(const std::string &filename, Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime> &m,
                            bool transposed = false) {
+        if (filename.empty())
+            return  false;
         std::ifstream input(filename.c_str());
         if (input.fail()) {
             std::cerr << "Cannot find file '" << filename << "'." << std::endl;
@@ -62,7 +64,8 @@ namespace utils {
     template<typename Scalar = double, int RowsAtCompileTime = Eigen::Dynamic, int ColsAtCompileTime = Eigen::Dynamic>
     inline bool saveMatrix(const std::string &directory, std::string filename,
                            Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime> matrix, bool overwrite = false) {
-        if (directory.empty())
+
+        if (directory.empty() or filename.empty())
             return false;
 
 
@@ -84,6 +87,8 @@ namespace utils {
     inline bool
     saveMatrix(const std::string &filename, Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime> matrix,
                bool overwrite = false) {
+        if (filename.empty())
+            return false;
         if (boost::filesystem::exists(filename)) {
             if (!overwrite) {
                 // File exists, but overwriting is not allowed. Abort.
@@ -186,7 +191,7 @@ namespace utils {
                            const scene::TFundamentalMatrix<T> &fundamental_matrix, std::vector<T> &left_residuals,
                            std::vector<T> &right_residuals) {
             assert(u1d.cols() == u2d.cols() && "Numbers of left and right keypoints should bee equal");
-            std::size_t number_of_points = static_cast<size_t>(u1d.cols());
+            auto number_of_points = static_cast<size_t>(u1d.cols());
             left_residuals.resize(number_of_points, T(std::numeric_limits<double>::max()));
             right_residuals.resize(number_of_points, T(std::numeric_limits<double>::max()));
             for (size_t k = 0; k < number_of_points; ++k) {

@@ -51,24 +51,25 @@ namespace scene {
         long number_of_points_;
 
     public:
-        TwoView(const internal_scene::Camera<IntrinsicsModel> &left_camera_,
-                const internal_scene::Camera<IntrinsicsModel> &right_camera_,
-                ImagePoints left_keypoints_,
-                ImagePoints right_keypoints_,
-                FundamentalMatrix bifocal_tensor_) : left_camera_(left_camera_),
-                                                     right_camera_(right_camera_),
-                                                     left_keypoints_(std::move(left_keypoints_)),
-                                                     right_keypoints_(std::move(right_keypoints_)),
-                                                     bifocal_tensor_(std::move(bifocal_tensor_)) {
+        TwoView(internal_scene::Camera<IntrinsicsModel> &left_camera,
+                internal_scene::Camera<IntrinsicsModel> &right_camera,
+                ImagePoints left_keypoints,
+                ImagePoints right_keypoints,
+                FundamentalMatrix bifocal_tensor) : left_camera_(std::move(left_camera)),
+                                                    right_camera_(std::move(right_camera)),
+                                                    left_keypoints_(std::move(left_keypoints)),
+                                                    right_keypoints_(std::move(right_keypoints)),
+                                                    bifocal_tensor_(std::move(bifocal_tensor)) {
             number_of_points_ = TwoView::left_keypoints_.cols();
         }
 
-        TwoView(const internal_scene::Camera<IntrinsicsModel> &left_camera_,
-                const internal_scene::Camera<IntrinsicsModel> &right_camera_,
-                ImagePoints left_keypoints_,
-                ImagePoints right_keypoints_) : left_camera_(left_camera_), right_camera_(right_camera_),
-                                                left_keypoints_(std::move(left_keypoints_)),
-                                                right_keypoints_(std::move(right_keypoints_)) {
+        TwoView(const internal_scene::Camera<IntrinsicsModel> &left_camera,
+                const internal_scene::Camera<IntrinsicsModel> &right_camera,
+                ImagePoints left_keypoints,
+                ImagePoints right_keypoints) : left_camera_(std::move(left_camera)),
+                                               right_camera_(std::move(right_camera)),
+                                               left_keypoints_(std::move(left_keypoints)),
+                                               right_keypoints_(std::move(right_keypoints)) {
             bifocal_tensor_.setZero();
             number_of_points_ = TwoView::left_keypoints_.cols();
         }
@@ -139,12 +140,12 @@ namespace scene {
 
         template<typename SceneArchiver>
         void saveScene(const SceneArchiver &serializator) const {
-            serializator.serialize(this);
+            serializator.serialize(*this);
         }
 
         template<typename SceneArchiver>
         void loadScene(const SceneArchiver &serializator) const {
-            serializator.deserialize(this);
+            serializator.deserialize(*this);
         }
 
         const ImagePoints &getLeftKeypoints() const {
@@ -165,6 +166,26 @@ namespace scene {
 
         const IntrinsicsModel &getRightIntrinsics() const {
             return right_camera_.getIntrinsics();
+        }
+
+        const Sophus::SO3d &getLeftRotation() const {
+
+            return left_camera_.getRotation();
+        }
+
+        const Sophus::SO3d &getRightRotation() const {
+
+            return right_camera_.getRotation();
+        }
+
+        const Eigen::Vector3d &getLeftTranslation() const {
+
+            return left_camera_.getTranslation();
+        }
+
+        const Eigen::Vector3d &getRightTranslation() const {
+
+            return right_camera_.getTranslation();
         }
 
 

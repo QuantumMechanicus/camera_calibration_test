@@ -1,0 +1,3 @@
+
+add_executable(groebner_automatic_solver Groebner_Estimator.cpp Groebner_Estimator.h main_distortion_estimator.cpp)
+target_link_libraries(groebner_automatic_solver core)

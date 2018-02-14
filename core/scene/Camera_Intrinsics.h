@@ -72,7 +72,7 @@ namespace intrinsics {
  * @brief Intrinsic parameters of division model for radial distortion (see A. W. Fitzgibbon "Simultaneous linear estimation of multiple view geometry and lens distortion")
  * \f$ x_u = \frac{x_d}{1 + \lambda_1 ||x_d||^2 + ... \lambda_N ||x_d||^{2N}} \f$
  */
-    template<unsigned int N = 1>
+    template<int N = 1>
     class DivisionModelIntrinsic : public IntrinsicsBase {
         double ppx_;
         double ppy_;
@@ -98,7 +98,7 @@ namespace intrinsics {
          * @param f Focal length
          * @param lambdas Parameters of division model
          */
-        DivisionModelIntrinsic(const Eigen::Matrix<double, N, 1> &lambdas, unsigned int w = 0, unsigned int h = 0,
+        explicit DivisionModelIntrinsic(const Eigen::Matrix<double, N, 1> &lambdas, unsigned int w = 0, unsigned int h = 0,
                                double f = 0, double ppx = 0,
                                double ppy = 0)
                 : IntrinsicsBase(w,h), ppx_(ppx),
@@ -107,14 +107,28 @@ namespace intrinsics {
                   lambdas_(lambdas) {}
 
         /**
-         @brief Constructor
+         @brief Constructor for non-dynamic lambdas
          * @param ppx X-axis coordinate of principal point
          * @param ppy Y-axis coordinate of principal point
          * @param f Focal length
          */
-        explicit DivisionModelIntrinsic(unsigned int w = 0, unsigned int h = 0, double f = 0, double ppx = 0,
+        DivisionModelIntrinsic(unsigned int w, unsigned int h, double f = 0, double ppx = 0,
                                         double ppy = 0) : IntrinsicsBase(w, h), ppx_(ppx), ppy_(ppy),
                                                           f_(f) {
+            assert(N != Eigen::Dynamic && "You should pass number of parameters for dynamic model");
+            lambdas_.setZero();
+        }
+
+        /**
+         @brief Constructor for dynamic lambdas
+         * @param ppx X-axis coordinate of principal point
+         * @param ppy Y-axis coordinate of principal point
+         * @param f Focal length
+         */
+        DivisionModelIntrinsic(unsigned int n, unsigned int w, unsigned int h, double f = 0, double ppx = 0,
+                                        double ppy = 0) : IntrinsicsBase(w, h), ppx_(ppx), ppy_(ppy),
+                                                          f_(f) {
+            lambdas_.resize(n, Eigen::NoChange);
             lambdas_.setZero();
         }
 

@@ -124,15 +124,23 @@ namespace scene_serialization {
     template<int N = 1>
     class SimpleDivisionModelArchiver {
         std::string intrinsics_parameters_file_name_;
-
+        unsigned int number_of_parameters;
 
     public:
         explicit SimpleDivisionModelArchiver(std::string intrinsics_parameters_file_name = "")
-                : intrinsics_parameters_file_name_(std::move(intrinsics_parameters_file_name)) {}
+                : intrinsics_parameters_file_name_(std::move(intrinsics_parameters_file_name)) {
+            assert(N != Eigen::Dynamic && "Use should use dynamic constructor");
+            number_of_parameters = static_cast<unsigned int>(N);
+        }
+
+        explicit SimpleDivisionModelArchiver(unsigned int n, std::string intrinsics_parameters_file_name = "")
+                : intrinsics_parameters_file_name_(std::move(intrinsics_parameters_file_name)) {
+            number_of_parameters = n;
+        }
 
         void serialize(const intrinsics::DivisionModelIntrinsic<N> &intrinsics) const {
-            Eigen::VectorXd vector_of_parameters(N + 5);
-            vector_of_parameters.head(N) = intrinsics.getDistortionCoefficients();
+            Eigen::VectorXd vector_of_parameters(number_of_parameters + 5);
+            vector_of_parameters.head(number_of_parameters) = intrinsics.getDistortionCoefficients();
             vector_of_parameters.tail(5)
                     << intrinsics.getFocalLength(), intrinsics.getPrincipalPointX(), intrinsics.getPrincipalPointY(), intrinsics.getHeight(), intrinsics.getWidth();
             utils::saveMatrix(intrinsics_parameters_file_name_, vector_of_parameters, true);
@@ -140,17 +148,21 @@ namespace scene_serialization {
         }
 
         void deserialize(intrinsics::DivisionModelIntrinsic<N> &intrinsics) {
-            Eigen::VectorXd vector_of_parameters(N + 5);
+            Eigen::VectorXd vector_of_parameters(number_of_parameters + 5);
             utils::loadMatrix(intrinsics_parameters_file_name_, vector_of_parameters);
-            Eigen::VectorXd distortion_coefficients = vector_of_parameters.head(N);
+            Eigen::VectorXd distortion_coefficients = vector_of_parameters.head(number_of_parameters);
             double ppx, ppy, w, h, f;
-            w = vector_of_parameters[N + 4];
-            h = vector_of_parameters[N + 3];
-            ppy = vector_of_parameters[N + 2];
-            ppx = vector_of_parameters[N + 1];
-            f = vector_of_parameters[N];
-            intrinsics = intrinsics::DivisionModelIntrinsic<N>(distortion_coefficients, static_cast<unsigned int>(w),
+            w = vector_of_parameters[number_of_parameters + 4];
+            h = vector_of_parameters[number_of_parameters + 3];
+            ppy = vector_of_parameters[number_of_parameters + 2];
+            ppx = vector_of_parameters[number_of_parameters + 1];
+            f = vector_of_parameters[number_of_parameters];
+            if (N != Eigen::Dynamic)
+                intrinsics = intrinsics::DivisionModelIntrinsic<N>(distortion_coefficients, static_cast<unsigned int>(w),
                                                                static_cast<unsigned int>(h), f, ppx, ppy);
+            else
+                intrinsics = intrinsics::DivisionModelIntrinsic<N>(number_of_parameters, distortion_coefficients, static_cast<unsigned int>(w),
+                                                                     static_cast<unsigned int>(h), f, ppx, ppy);
 
         }
     };

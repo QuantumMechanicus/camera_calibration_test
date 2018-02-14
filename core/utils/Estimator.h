@@ -39,7 +39,7 @@ namespace estimators {
         };
 
 
-        template<unsigned int N>
+        template<int N>
         class DivisionModelIntrinsicsEstimator : virtual public BaseEstimator {
 
         protected:
@@ -50,6 +50,12 @@ namespace estimators {
 
         public:
             DivisionModelIntrinsicsEstimator() : ppx_(0), ppy_(0), f_(0) {
+                assert(N != Eigen::Dynamic && "You should pass number of parameters for dynamic model");
+                lambdas_.setZero();
+            }
+
+            explicit DivisionModelIntrinsicsEstimator(unsigned int n) : ppx_(0), ppy_(0), f_(0) {
+                lambdas_.resize(n, Eigen::NoChange);
                 lambdas_.setZero();
             }
 

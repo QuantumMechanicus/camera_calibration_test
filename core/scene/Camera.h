@@ -25,19 +25,44 @@ namespace internal_scene {
     public:
         /**
          * @brief Constructor
+         */
+        Camera() = default;
+
+        /**
+         * @brief Constructor
+         * @param intrinsics Pointer to intrinsic parameters
+         * @param rotation  Rotation element R of transform from world coordinates to local camera coordinates
+         * @param translation Translation element t of transform from world coordinates to local camera coordinates
+         */
+        Camera(const std::shared_ptr<IntrinsicsModel> intrinsics, Sophus::SO3d rotation,
+               Eigen::Vector3d translation) : intrinsics_(std::move(intrinsics)), world_rotation_(std::move(rotation)),
+                                              world_translation_(std::move(translation)) {}
+
+
+        /**
+         * @brief Constructor
          * @param intrinsics Intrinsic parameters
          * @param rotation  Rotation element R of transform from world coordinates to local camera coordinates
          * @param translation Translation element t of transform from world coordinates to local camera coordinates
          */
-        Camera(std::shared_ptr<IntrinsicsModel> intrinsics, Sophus::SO3d rotation,
-               Eigen::Vector3d translation) : intrinsics_(std::move(intrinsics)), world_rotation_(std::move(rotation)),
+        Camera(const IntrinsicsModel intrinsics, Sophus::SO3d rotation,
+               Eigen::Vector3d translation) : intrinsics_(std::make_shared<IntrinsicsModel>(intrinsics)), world_rotation_(std::move(rotation)),
                                               world_translation_(std::move(translation)) {}
+
 
         /**
          * @brief Another version of constructor
          */
-        explicit Camera(std::shared_ptr<IntrinsicsModel> intrinsics) : intrinsics_(std::move(intrinsics)),
+        explicit Camera(const std::shared_ptr<IntrinsicsModel> intrinsics) : intrinsics_(std::move(intrinsics)),
                                                                        world_rotation_() {
+            world_translation_.setZero();
+        }
+
+        /**
+         * @brief Another version of constructor
+         */
+        explicit Camera(const std::shared_ptr<const IntrinsicsModel> intrinsics) : intrinsics_(std::move(intrinsics)),
+                                                                             world_rotation_() {
             world_translation_.setZero();
         }
 
@@ -57,8 +82,8 @@ namespace internal_scene {
          * @brief Getter for intrinsic parameters
          * @return Pointer to intrinsics
          */
-        const std::shared_ptr<const IntrinsicsModel> getIntrinsicsPointer() const {
-            return *intrinsics_;
+        const std::shared_ptr<IntrinsicsModel> getIntrinsicsPointer() const {
+            return intrinsics_;
         }
 
         /**

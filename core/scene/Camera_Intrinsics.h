@@ -74,9 +74,9 @@ namespace intrinsics {
  */
     template<int N = 1>
     class DivisionModelIntrinsic : public IntrinsicsBase {
-        double ppx_;
-        double ppy_;
-        double f_;
+        double ppx_{};
+        double ppy_{};
+        double f_{};
         Eigen::Matrix<double, N, 1> lambdas_;
 
         /**
@@ -93,12 +93,33 @@ namespace intrinsics {
     public:
         /**
          * @brief Constructor
+         */
+        DivisionModelIntrinsic() = default;
+
+        /**
+         * @brief Constructor
          * @param ppx X-axis coordinate of principal point
          * @param ppy Y-axis coordinate of principal point
          * @param f Focal length
          * @param lambdas Parameters of division model
          */
         explicit DivisionModelIntrinsic(const Eigen::Matrix<double, N, 1> &lambdas, unsigned int w = 0, unsigned int h = 0,
+                                        double f = 0, double ppx = 0,
+                                        double ppy = 0)
+                : IntrinsicsBase(w,h), ppx_(ppx),
+                  ppy_(ppy),
+                  f_(f),
+                  lambdas_(lambdas) {}
+
+        /**
+         * @brief Constructor
+         * @param ppx X-axis coordinate of principal point
+         * @param ppy Y-axis coordinate of principal point
+         * @param f Focal length
+         * @param lambdas Parameters of division model
+         * @param n Number of distortion coefficients (lambdas)
+         */
+        explicit DivisionModelIntrinsic(unsigned int n, const Eigen::Matrix<double, N, 1> &lambdas, unsigned int w = 0, unsigned int h = 0,
                                double f = 0, double ppx = 0,
                                double ppy = 0)
                 : IntrinsicsBase(w,h), ppx_(ppx),
@@ -124,6 +145,7 @@ namespace intrinsics {
          * @param ppx X-axis coordinate of principal point
          * @param ppy Y-axis coordinate of principal point
          * @param f Focal length
+         * @param n Number of distortion coefficients (lambdas)
          */
         DivisionModelIntrinsic(unsigned int n, unsigned int w, unsigned int h, double f = 0, double ppx = 0,
                                         double ppy = 0) : IntrinsicsBase(w, h), ppx_(ppx), ppy_(ppy),
@@ -190,6 +212,23 @@ namespace intrinsics {
          */
         const Eigen::Matrix<double, N, 1> &getDistortionCoefficients() const {
             return lambdas_;
+        }
+
+        int getNumberOfCofficients() const
+        {
+            return static_cast<int>(lambdas_.rows());
+        }
+
+        /**
+         * @param new_size
+         */
+        void resizeDistortionCoefficients(long new_size)
+        {
+            assert(N == Eigen::Dynamic && "You can't delete or add coefficients on static model");
+            long old_size = lambdas_.rows();
+            lambdas_.conservativeResize(new_size, Eigen::NoChange);
+            if (new_size > old_size)
+                lambdas_.bottomRows(new_size-old_size).setZero();
         }
     };
 

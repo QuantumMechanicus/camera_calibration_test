@@ -51,6 +51,9 @@ namespace scene {
         long number_of_points_;
 
     public:
+
+        TwoView() = default;
+
         TwoView(internal_scene::Camera<IntrinsicsModel> &left_camera,
                 internal_scene::Camera<IntrinsicsModel> &right_camera,
                 ImagePoints left_keypoints,
@@ -144,7 +147,7 @@ namespace scene {
         }
 
         template<typename SceneArchiver>
-        void loadScene(const SceneArchiver &serializator) const {
+        void loadScene(const SceneArchiver &serializator) {
             serializator.deserialize(*this);
         }
 

@@ -11,7 +11,7 @@
 
 namespace scene_serialization {
 
-    template<typename IntrinsicsArchiver, typename IntrinsicsModel>
+    template<typename IntrinsicsArchiver>
     class SimpleSceneArchiver {
         std::string left_keypoints_file_name_;
         std::string right_keypoints_file_name_;
@@ -20,9 +20,11 @@ namespace scene_serialization {
         std::string left_extrinsics_parameters_file_name_;
         std::string right_extrinsics_parameters_file_name_;
         std::string fundamental_matrix_file_name_;
-
+        int number_of_intrinsic_parameters_;
 
     public:
+        const int CompileTimeKnown = -1;
+
         explicit SimpleSceneArchiver(std::string fundamental_matrix_file_name = "",
                                      std::string left_intrinsics_parameters_file_name = "",
                                      std::string right_intrinsics_parameters_file_name = "",
@@ -30,7 +32,7 @@ namespace scene_serialization {
                                      std::string right_extrinsics_parameters_file_name = "",
                                      std::string left_keypoints_file_name = "",
                                      std::string right_keypoints_file_name = ""
-        ) : left_keypoints_file_name_(std::move(
+        ) : number_of_intrinsic_parameters_(CompileTimeKnown), left_keypoints_file_name_(std::move(
                 left_keypoints_file_name)), right_keypoints_file_name_(std::move(right_keypoints_file_name)),
             left_intrinsics_parameters_file_name_(
                     std::move(
@@ -47,7 +49,32 @@ namespace scene_serialization {
             fundamental_matrix_file_name_(std::move(
                     fundamental_matrix_file_name)) {}
 
-        void serialize(const scene::TwoView<IntrinsicsModel> &stereo_pair) const {
+        explicit SimpleSceneArchiver(int number_of_intrinsic_parameters,
+                                     std::string fundamental_matrix_file_name = "",
+                                     std::string left_intrinsics_parameters_file_name = "",
+                                     std::string right_intrinsics_parameters_file_name = "",
+                                     std::string left_extrinsics_parameters_file_name = "",
+                                     std::string right_extrinsics_parameters_file_name = "",
+                                     std::string left_keypoints_file_name = "",
+                                     std::string right_keypoints_file_name = ""
+        ) : number_of_intrinsic_parameters_(number_of_intrinsic_parameters), left_keypoints_file_name_(std::move(
+                left_keypoints_file_name)), right_keypoints_file_name_(std::move(right_keypoints_file_name)),
+            left_intrinsics_parameters_file_name_(
+                    std::move(
+                            left_intrinsics_parameters_file_name)),
+            right_intrinsics_parameters_file_name_(
+                    std::move(
+                            right_intrinsics_parameters_file_name)),
+            left_extrinsics_parameters_file_name_(
+                    std::move(
+                            left_extrinsics_parameters_file_name)),
+            right_extrinsics_parameters_file_name_(
+                    std::move(
+                            right_extrinsics_parameters_file_name)),
+            fundamental_matrix_file_name_(std::move(
+                    fundamental_matrix_file_name)) {}
+
+        void serialize(const scene::TwoView<typename IntrinsicsArchiver::Model> &stereo_pair) const {
 
 
             utils::saveMatrix(fundamental_matrix_file_name_, stereo_pair.getFundamentalMatrix(), true);
@@ -59,7 +86,13 @@ namespace scene_serialization {
             utils::saveMatrix(left_extrinsics_parameters_file_name_, left_motion.matrix());
             utils::saveMatrix(right_extrinsics_parameters_file_name_, right_motion.matrix());
 
-            IntrinsicsArchiver intrinsics_archiver(left_intrinsics_parameters_file_name_);
+            IntrinsicsArchiver intrinsics_archiver;
+            if (number_of_intrinsic_parameters_ != CompileTimeKnown)
+                intrinsics_archiver = IntrinsicsArchiver (number_of_intrinsic_parameters_,
+                                                          left_intrinsics_parameters_file_name_);
+            else
+                intrinsics_archiver = IntrinsicsArchiver(left_intrinsics_parameters_file_name_);
+
             intrinsics_archiver.serialize(stereo_pair.getLeftIntrinsics());
             if (left_intrinsics_parameters_file_name_ != right_intrinsics_parameters_file_name_) {
                 intrinsics_archiver = IntrinsicsArchiver(right_intrinsics_parameters_file_name_);
@@ -67,7 +100,7 @@ namespace scene_serialization {
             }
         }
 
-        void deserialize(scene::TwoView<IntrinsicsModel> &stereo_pair) {
+        void deserialize(scene::TwoView<typename IntrinsicsArchiver::Model> &stereo_pair) {
             Eigen::Matrix3d fundamental_matrix;
             Eigen::Matrix<double, 4, 3> left_motion_matrix, right_motion_matrix;
             scene::ImagePoints left_points, right_points;
@@ -85,10 +118,15 @@ namespace scene_serialization {
             left_motion = Sophus::SE3d(left_motion_matrix);
             right_motion = Sophus::SE3d(right_motion);
 
-            IntrinsicsModel left_intrinsics, right_intrinsics;
+            typename IntrinsicsArchiver::Model left_intrinsics, right_intrinsics;
 
+            IntrinsicsArchiver intrinsics_archiver;
+            if (number_of_intrinsic_parameters_ != CompileTimeKnown)
+                intrinsics_archiver = IntrinsicsArchiver(number_of_intrinsic_parameters_,
+                                                         left_intrinsics_parameters_file_name_);
+            else
+                intrinsics_archiver = IntrinsicsArchiver(left_intrinsics_parameters_file_name_);
 
-            IntrinsicsArchiver intrinsics_archiver(left_intrinsics_parameters_file_name_);
             intrinsics_archiver.deserialize(left_intrinsics);
             if (left_intrinsics_parameters_file_name_ != right_intrinsics_parameters_file_name_) {
                 intrinsics_archiver = IntrinsicsArchiver(right_intrinsics_parameters_file_name_);
@@ -97,27 +135,31 @@ namespace scene_serialization {
             } else {
                 right_intrinsics = left_intrinsics;
             }
-            internal_scene::Camera<IntrinsicsModel> left_camera, right_camera;
+            internal_scene::Camera<typename IntrinsicsArchiver::Model> left_camera, right_camera;
             if (left_intrinsics == right_intrinsics) {
-                left_camera = internal_scene::Camera<IntrinsicsModel>(
-                        std::make_shared<IntrinsicsModel>(left_intrinsics), left_motion.rotationMatrix(),
+                left_camera = internal_scene::Camera<typename IntrinsicsArchiver::Model>(
+                        std::make_shared<typename IntrinsicsArchiver::Model>(left_intrinsics),
+                        left_motion.rotationMatrix(),
                         left_motion.translation());
-                right_camera = internal_scene::Camera<IntrinsicsModel>(left_camera.getIntrinsics(),
-                                                                       right_motion.rotationMatrix(),
-                                                                       right_motion.translation());
+                right_camera = internal_scene::Camera<typename IntrinsicsArchiver::Model>(left_camera.getIntrinsics(),
+                                                                                          right_motion.rotationMatrix(),
+                                                                                          right_motion.translation());
 
 
             } else {
-                left_camera = internal_scene::Camera<IntrinsicsModel>(
-                        std::make_shared<IntrinsicsModel>(left_intrinsics), left_motion.rotationMatrix(),
+                left_camera = internal_scene::Camera<typename IntrinsicsArchiver::Model>(
+                        std::make_shared<typename IntrinsicsArchiver::Model>(left_intrinsics),
+                        left_motion.rotationMatrix(),
                         left_motion.translation());
-                right_camera = internal_scene::Camera<IntrinsicsModel>(
-                        std::make_shared<IntrinsicsModel>(right_intrinsics), right_motion.rotationMatrix(),
+                right_camera = internal_scene::Camera<typename IntrinsicsArchiver::Model>(
+                        std::make_shared<typename IntrinsicsArchiver::Model>(right_intrinsics),
+                        right_motion.rotationMatrix(),
                         right_motion.translation());
 
             }
-            stereo_pair = scene::TwoView<IntrinsicsModel>(left_camera, right_camera, left_points, right_points,
-                                                          fundamental_matrix);
+            stereo_pair = scene::TwoView<typename IntrinsicsArchiver::Model>(left_camera, right_camera, left_points,
+                                                                             right_points,
+                                                                             fundamental_matrix);
         }
     };
 
@@ -127,13 +169,20 @@ namespace scene_serialization {
         unsigned int number_of_parameters;
 
     public:
-        explicit SimpleDivisionModelArchiver(std::string intrinsics_parameters_file_name = "")
+        typedef intrinsics::DivisionModelIntrinsic<N> Model;
+
+        SimpleDivisionModelArchiver() {
+            intrinsics_parameters_file_name_ = "";
+            number_of_parameters = 0;
+        };
+
+        explicit SimpleDivisionModelArchiver(std::string intrinsics_parameters_file_name)
                 : intrinsics_parameters_file_name_(std::move(intrinsics_parameters_file_name)) {
             assert(N != Eigen::Dynamic && "Use should use dynamic constructor");
             number_of_parameters = static_cast<unsigned int>(N);
         }
 
-        explicit SimpleDivisionModelArchiver(unsigned int n, std::string intrinsics_parameters_file_name = "")
+        explicit SimpleDivisionModelArchiver(unsigned int n, std::string intrinsics_parameters_file_name)
                 : intrinsics_parameters_file_name_(std::move(intrinsics_parameters_file_name)) {
             number_of_parameters = n;
         }
@@ -158,11 +207,13 @@ namespace scene_serialization {
             ppx = vector_of_parameters[number_of_parameters + 1];
             f = vector_of_parameters[number_of_parameters];
             if (N != Eigen::Dynamic)
-                intrinsics = intrinsics::DivisionModelIntrinsic<N>(distortion_coefficients, static_cast<unsigned int>(w),
-                                                               static_cast<unsigned int>(h), f, ppx, ppy);
+                intrinsics = intrinsics::DivisionModelIntrinsic<N>(distortion_coefficients,
+                                                                   static_cast<unsigned int>(w),
+                                                                   static_cast<unsigned int>(h), f, ppx, ppy);
             else
-                intrinsics = intrinsics::DivisionModelIntrinsic<N>(number_of_parameters, distortion_coefficients, static_cast<unsigned int>(w),
-                                                                     static_cast<unsigned int>(h), f, ppx, ppy);
+                intrinsics = intrinsics::DivisionModelIntrinsic<N>(number_of_parameters, distortion_coefficients,
+                                                                   static_cast<unsigned int>(w),
+                                                                   static_cast<unsigned int>(h), f, ppx, ppy);
 
         }
     };

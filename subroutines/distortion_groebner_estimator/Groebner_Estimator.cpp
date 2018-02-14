@@ -97,6 +97,7 @@ namespace estimators {
 
             }
         }
+        std::cout << min_quantile << " " << lambdas_(0) << std::endl;
     }
 
     double GroebnerDivisionModelEstimator::computeErrorsAndEstimateQuantile(double distortion_coefficient,

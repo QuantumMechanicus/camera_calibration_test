@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
                 ("rp", po::value<std::string>(&input2)->required(),
                  "Path to file with second (right) camera keypoints")
                 ("up_threshold", po::value<double>(&lambda_upper_bound)->default_value(0.25), "Lambda upper threshold")
-                ("low_threshold", po::value<double>(&lambda_lower_bound)->default_value(-2), "Lambda lower threshold")
+                ("low_threshold", po::value<double>(&lambda_lower_bound)->default_value(-1), "Lambda lower threshold")
                 ("ff", po::value<std::string>(&f_estimated_fundamental_matrix)->default_value(
                         "./estimated_f"), "Output file for fundamental matrix estimation")
                 ("lf", po::value<std::string>(&f_estimated_lambda)->default_value(
@@ -56,7 +56,6 @@ int main(int argc, char *argv[]) {
     utils::loadMatrix<double, 2, Eigen::Dynamic>(input2, u2d, true);
 
     Eigen::Matrix3d fundamental_matrix;
-    double lambda;
     std::shared_ptr<intrinsics::StandardDivisionModelIntrinsic> intrinsics = std::make_shared<intrinsics::StandardDivisionModelIntrinsic>(
             w, h);
 
@@ -74,7 +73,7 @@ int main(int argc, char *argv[]) {
                                                                   stereo_pair.getRightKeypoints(), opt);
     stereo_pair.estimateLeftIntrinsics(groebner_estimator);
     stereo_pair.estimateFundamentalMatrix(groebner_estimator);
-    scene_serialization::SimpleSceneArchiver<scene_serialization::SimpleDivisionModelArchiver<1>, intrinsics::StandardDivisionModelIntrinsic>
+    scene_serialization::SimpleSceneArchiver<scene_serialization::SimpleDivisionModelArchiver<1>>
             archiver(f_estimated_fundamental_matrix, f_estimated_lambda, f_estimated_lambda);
     stereo_pair.saveScene(archiver);
 
@@ -82,7 +81,7 @@ int main(int argc, char *argv[]) {
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::high_resolution_clock::now() - start).count();
 
-    std::cout << std::endl << "Estimation done in " << std::setprecision(5) << duration / 1000.0 << "seconds"
+    std::cout << std::endl << "Estimation done in " << std::setprecision(5) << duration / 1000.0 << " seconds"
               << std::endl;
 
 

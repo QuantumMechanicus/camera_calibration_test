@@ -18,7 +18,7 @@ namespace utils {
     inline bool loadMatrix(const std::string &filename, Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime> &m,
                            bool transposed = false) {
         if (filename.empty())
-            return  false;
+            return false;
         std::ifstream input(filename.c_str());
         if (input.fail()) {
             std::cerr << "Cannot find file '" << filename << "'." << std::endl;
@@ -54,9 +54,15 @@ namespace utils {
             m.setZero();
             return false;
         }
+        if (transposed)
+            std::swap(n_cols, n_rows);
         for (int i = 0; i < n_rows; i++)
             for (int j = 0; j < n_cols; j++)
-                m(i, j) = v[i * n_cols + j];
+                if (transposed)
+                    m(j, i) = v[i * n_cols + j];
+                else
+                    m(i, j) = v[i * n_cols + j];
+
 
         return true;
     }

@@ -1,0 +1,5 @@
+find_package(OpenCV REQUIRED)
+link_directories(${OpenCV_LIBS_DIR})
+include_directories(${OpenCV_INCLUDE_PATH})
+add_executable(undistortion main_undistortion.cpp)
+target_link_libraries(undistortion core tbb ${OpenCV_LIBS})

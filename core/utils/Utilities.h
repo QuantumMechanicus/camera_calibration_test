@@ -172,6 +172,39 @@ namespace utils {
         }
 
         template<typename T>
+        T solvePoly(const Eigen::Matrix<T, Eigen::Dynamic, 1> &distortion_coefficients, T r) {
+
+            auto deg = 2 * distortion_coefficients.size();
+            Eigen::Matrix<T, Eigen::Dynamic, 1> coeff = Eigen::Matrix<T, Eigen::Dynamic, 1>::Zero(deg + 1);
+
+            for (auto k = static_cast<size_t>(distortion_coefficients.size()); k > 0; --k)
+                coeff(2 * k, 0) = r * distortion_coefficients[k - 1];
+
+            coeff(1, 0) = -1;
+            coeff(0, 0) = r;
+            coeff /= coeff[deg];
+
+            T rd = std::numeric_limits<T>::max();
+
+            Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> companion(deg, deg);
+            companion.setZero();
+            companion.col(deg - 1) = -1 * coeff.topRows(deg);
+            companion.block(1, 0, deg - 1, deg - 1).setIdentity();
+
+
+            auto eigenvalues = companion.eigenvalues();
+            for (size_t j = 0; j < eigenvalues.rows(); ++j) {
+                T real = eigenvalues[j].real();
+                T imag = eigenvalues[j].imag();
+                if (ceres::abs(imag) < 1e-9 && real > 0 && rd > real) {
+                    rd = real;
+                }
+
+            }
+            return rd;
+        }
+
+        template<typename T>
         T solveQuadric(T distortion_coefficient, T r) {
             if (ceres::abs(distortion_coefficient) < T(EPS) or r < T(1e-9)) {
                 return r;
@@ -252,7 +285,7 @@ namespace utils {
 
                 T r1u = line_point1.norm();
                 T r2u = line_point2.norm();
-
+                //TODO try to change this to Eigen polynomial solver (need fix for std::Complex with Ceres::Jet)
                 if (distortion_coefficients.rows() > 1) {
 
                     root_r1d_estimation = u1d.norm() - epsilon1;

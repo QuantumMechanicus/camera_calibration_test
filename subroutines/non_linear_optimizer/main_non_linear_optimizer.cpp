@@ -2,7 +2,7 @@
 // Created by danielbord on 2/14/18.
 //
 #include <boost/program_options.hpp>
-#include "Core.h"
+#include "Non_Linear_Estimator.h"
 
 int main(int argc, char *argv[]) {
 
@@ -91,6 +91,22 @@ int main(int argc, char *argv[]) {
             distortion_coefficients,
             w, h, mean_f, mean_ppx, mean_ppy);
 
+
+    for (size_t k = 0; k < number_of_pairs; ++k) {
+
+        stereo_pairs[k] = scene::TwoView<intrinsics::DivisionModelIntrinsic<Eigen::Dynamic>>(
+                internal_scene::Camera<intrinsics::DivisionModelIntrinsic<Eigen::Dynamic>>(common_intrinsics_parameters,
+                                                                                           stereo_pairs[k].getLeftRotation(),
+                                                                                           stereo_pairs[k].getLeftTranslation()),
+                internal_scene::Camera<intrinsics::DivisionModelIntrinsic<Eigen::Dynamic>>(common_intrinsics_parameters,
+                                                                                           stereo_pairs[k].getRightRotation(),
+                                                                                           stereo_pairs[k].getRightTranslation()),
+                stereo_pairs[k].getLeftKeypoints(), stereo_pairs[k].getRightKeypoints());
+    }
+
+
+
+    /*
     //This is for test (later will be added for gtest)
     std::cout << "T\n";
     std::cout << common_intrinsics_parameters.use_count() << std::endl;

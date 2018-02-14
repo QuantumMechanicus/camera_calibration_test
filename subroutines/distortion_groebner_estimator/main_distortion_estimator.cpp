@@ -74,8 +74,7 @@ int main(int argc, char *argv[]) {
                                                                   stereo_pair.getRightKeypoints(), opt);
     stereo_pair.estimateLeftIntrinsics(groebner_estimator);
     stereo_pair.estimateFundamentalMatrix(groebner_estimator);
-    std::cout << stereo_pair.getLeftIntrinsics().getDistortionCoefficients() << std::endl;
-    scene_serialization::SimpleSceneArchiver<scene_serialization::SimpleDivisionModelArchiver<1>>
+    scene_serialization::SimpleSceneArchiver<scene_serialization::SimpleDivisionModelArchiver<1>, intrinsics::StandardDivisionModelIntrinsic>
             archiver(f_estimated_fundamental_matrix, f_estimated_lambda, f_estimated_lambda);
     stereo_pair.saveScene(archiver);
 
@@ -83,7 +82,7 @@ int main(int argc, char *argv[]) {
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::high_resolution_clock::now() - start).count();
 
-    std::cout << std::endl << "Estimation done in " << std::setprecision(5) << duration / 1000.0 << " seconds"
+    std::cout << std::endl << "Estimation done in " << std::setprecision(5) << duration / 1000.0 << "seconds"
               << std::endl;
 
 

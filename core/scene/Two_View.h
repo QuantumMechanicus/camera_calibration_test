@@ -44,18 +44,18 @@ namespace scene {
         internal_scene::Camera<IntrinsicsModel> left_camera_;
         internal_scene::Camera<IntrinsicsModel> right_camera_;
 
-        ImagePoints left_keypoints_;
-        ImagePoints right_keypoints_;
-        FundamentalMatrix bifocal_tensor_;
+        ImagePoints left_keypoints_{};
+        ImagePoints right_keypoints_{};
+        FundamentalMatrix bifocal_tensor_{};
 
-        long number_of_points_;
+        long number_of_points_{};
 
     public:
 
         TwoView() = default;
 
-        TwoView(internal_scene::Camera<IntrinsicsModel> &left_camera,
-                internal_scene::Camera<IntrinsicsModel> &right_camera,
+        TwoView(internal_scene::Camera<IntrinsicsModel> left_camera,
+                internal_scene::Camera<IntrinsicsModel> right_camera,
                 ImagePoints left_keypoints,
                 ImagePoints right_keypoints,
                 FundamentalMatrix bifocal_tensor) : left_camera_(std::move(left_camera)),
@@ -66,8 +66,8 @@ namespace scene {
             number_of_points_ = TwoView::left_keypoints_.cols();
         }
 
-        TwoView(const internal_scene::Camera<IntrinsicsModel> &left_camera,
-                const internal_scene::Camera<IntrinsicsModel> &right_camera,
+        TwoView(internal_scene::Camera<IntrinsicsModel> left_camera,
+                internal_scene::Camera<IntrinsicsModel> right_camera,
                 ImagePoints left_keypoints,
                 ImagePoints right_keypoints) : left_camera_(std::move(left_camera)),
                                                right_camera_(std::move(right_camera)),
@@ -161,6 +161,14 @@ namespace scene {
 
         const FundamentalMatrix &getFundamentalMatrix() const {
             return bifocal_tensor_;
+        }
+
+        const std::shared_ptr<IntrinsicsModel> getLeftIntrinsicsPointer() const {
+            return left_camera_.getIntrinsicsPointer();
+        }
+
+        const std::shared_ptr<IntrinsicsModel> getRightIntrinsicsPointer() const {
+            return right_camera_.getIntrinsicsPointer();
         }
 
         const IntrinsicsModel &getLeftIntrinsics() const {

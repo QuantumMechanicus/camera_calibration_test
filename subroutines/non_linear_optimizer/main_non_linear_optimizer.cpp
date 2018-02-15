@@ -23,7 +23,7 @@ int main(int argc, char *argv[]) {
                 ("lf",
                  po::value<std::vector<std::string> >(&f_estimated_intrinsics)->multitoken()->required(),
                  "Path to estimated intrinsics")
-                /*("lp", po::value<std::vector<std::string> >(&input1)->multitoken()->required(),
+                ("lp", po::value<std::vector<std::string> >(&input1)->multitoken()->required(),
                  "Path to files with first (left) camera keypoints")
                 ("rp", po::value<std::vector<std::string> >(&input2)->multitoken()->required(),
                  "Path to files with second (right) camera keypoints")
@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
                 ("i", po::value<int>(&non_linear_iter)->default_value(1), "Number of iterations")
                 ("w", po::value<unsigned int>(&w)->required(), "Width")
                 ("h", po::value<unsigned int>(&h)->required(), "Height")
-                ("q", po::value<double>(&percent_of_inliers)->default_value(0.1), "quantile to minimize")*/
+                ("q", po::value<double>(&percent_of_inliers)->default_value(0.1), "quantile to minimize")
                 ("nl", po::value<int>(&number_of_distortion_coefficients)->default_value(1),
                  "Number of parameters in denominator of model");
 
@@ -65,21 +65,20 @@ int main(int argc, char *argv[]) {
     for (size_t k = 0; k < number_of_pairs; ++k) {
         scene_serialization::SimpleSceneArchiver<scene_serialization::SimpleDivisionModelArchiver<Eigen::Dynamic>> archiver(
                 f_estimated_fundamental_matrices[k],
-                f_estimated_intrinsics[k], f_estimated_intrinsics[k]);
+                f_estimated_intrinsics[k], f_estimated_intrinsics[k], input1[k], input2[k]);
         scene::TwoView<intrinsics::DivisionModelIntrinsic<Eigen::Dynamic>> stereo_pair;
-        std::cout << stereo_pair.getLeftIntrinsicsPointer().use_count() << std::endl;
         stereo_pair.loadScene(archiver);
-        std::cout << stereo_pair.getLeftIntrinsicsPointer().use_count() << std::endl;
-        std::cout << stereo_pair.getRightIntrinsicsPointer().use_count() << std::endl;
-        std::cout << bool(stereo_pair.getRightIntrinsicsPointer() == stereo_pair.getLeftIntrinsicsPointer())
-                  << std::endl;
         stereo_pairs[k] = stereo_pair;
-        std::cout << stereo_pair.getLeftIntrinsicsPointer().use_count() << std::endl;
         mean_distortion_coefficient += stereo_pair.getLeftIntrinsics().getDistortionCoefficients()(0);
         mean_ppx += stereo_pair.getLeftIntrinsics().getPrincipalPointX();
         mean_ppy += stereo_pair.getLeftIntrinsics().getPrincipalPointY();
         mean_f += stereo_pair.getLeftIntrinsics().getFocalLength();
+        stereo_pairs[k].normalizeLeftKeypoints();
+        stereo_pairs[k].normalizeRightKeypoints();
+
     }
+
+
     mean_distortion_coefficient /= number_of_pairs;
     mean_ppx /= number_of_pairs;
     mean_ppy /= number_of_pairs;
@@ -91,8 +90,13 @@ int main(int argc, char *argv[]) {
             distortion_coefficients,
             w, h, mean_f, mean_ppx, mean_ppy);
 
+    scene::StdVector<scene::FundamentalMatrix> fundamental_matrices;
+    scene::StdVector<scene::ImagePoints> left_pictures_keypoints, right_pictures_keypoints;
 
     for (size_t k = 0; k < number_of_pairs; ++k) {
+        left_pictures_keypoints.push_back(stereo_pairs[k].getLeftKeypoints());
+        right_pictures_keypoints.push_back(stereo_pairs[k].getRightKeypoints());
+        fundamental_matrices.push_back(stereo_pairs[k].getFundamentalMatrix());
 
         stereo_pairs[k] = scene::TwoView<intrinsics::DivisionModelIntrinsic<Eigen::Dynamic>>(
                 internal_scene::Camera<intrinsics::DivisionModelIntrinsic<Eigen::Dynamic>>(common_intrinsics_parameters,
@@ -101,11 +105,14 @@ int main(int argc, char *argv[]) {
                 internal_scene::Camera<intrinsics::DivisionModelIntrinsic<Eigen::Dynamic>>(common_intrinsics_parameters,
                                                                                            stereo_pairs[k].getRightRotation(),
                                                                                            stereo_pairs[k].getRightTranslation()),
-                stereo_pairs[k].getLeftKeypoints(), stereo_pairs[k].getRightKeypoints());
+                stereo_pairs[k].getLeftKeypoints(), stereo_pairs[k].getRightKeypoints(),
+                stereo_pairs[k].getFundamentalMatrix());
     }
-
-
-
+    double image_radius = std::sqrt((w / 2) * (w / 2) + (h / 2) * (h / 2));
+    non_linear_optimization::NonLinearEstimatorOptions options(non_linear_iter, percent_of_inliers, 100, image_radius);
+    non_linear_optimization::NonLinearEstimator estimator(left_pictures_keypoints, right_pictures_keypoints,
+                                                          fundamental_matrices, *common_intrinsics_parameters, options);
+    estimator.estimate();
     /*
     //This is for test (later will be added for gtest)
     std::cout << "T\n";

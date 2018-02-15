@@ -49,15 +49,21 @@ namespace estimators {
             Eigen::Matrix<double, N, 1> lambdas_;
 
         public:
-            DivisionModelIntrinsicsEstimator() : ppx_(0), ppy_(0), f_(0) {
-                assert(N != Eigen::Dynamic && "You should pass number of parameters for dynamic model");
+            explicit DivisionModelIntrinsicsEstimator(double f = 0, double ppx = 0,
+                                                      double ppy = 0) : ppx_(ppx), ppy_(ppy), f_(f) {
                 lambdas_.setZero();
             }
 
-            explicit DivisionModelIntrinsicsEstimator(unsigned int n) : ppx_(0), ppy_(0), f_(0) {
+            explicit DivisionModelIntrinsicsEstimator(unsigned int n, double f = 0, double ppx = 0,
+                                                      double ppy = 0) : ppx_(ppx), ppy_(ppy), f_(f) {
                 lambdas_.resize(n, Eigen::NoChange);
                 lambdas_.setZero();
             }
+
+            explicit DivisionModelIntrinsicsEstimator(Eigen::Matrix<double, N, 1> lambdas, double f = 0, double ppx = 0,
+                                                      double ppy = 0) : lambdas_(lambdas), ppx_(ppx), ppy_(ppy), f_(f) {
+            }
+
 
             double getPrincipalPointX() const {
                 return ppx_;

@@ -84,6 +84,6 @@ int main(int argc, char *argv[]) {
     std::cout << std::endl << "Estimation done in " << std::setprecision(5) << duration / 1000.0 << " seconds"
               << std::endl;
 
-
+    //TODO add inliers list
     return 0;
 }

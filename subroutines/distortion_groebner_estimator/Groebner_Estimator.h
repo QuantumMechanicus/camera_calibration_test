@@ -10,11 +10,11 @@
 namespace estimators {
 
     struct GroebnerEstimatorOptions {
-        int number_of_RANSAC_iterations = 1000000;
-        double quantile_to_minimize = 0.1;
-        double lambda_lower_bound = -1;
-        double lambda_upper_bound = 0.25;
-        double image_radius = 1;
+        int number_of_RANSAC_iterations;
+        double quantile_to_minimize;
+        double lambda_lower_bound;
+        double lambda_upper_bound;
+        double image_radius;
 
         explicit GroebnerEstimatorOptions(int number_of_RANSAC_iterations = 1000000, double quantile_to_minimize = 0.1,
                                  double lambda_lower_bound = -1, double lambda_upper_bound = 0.25, double image_radius = 1);

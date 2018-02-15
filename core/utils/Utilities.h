@@ -121,10 +121,16 @@ namespace utils {
 
     namespace distortion_problem {
 
-        double estimateQuantile(std::vector<double> &errors,
+        double estimateQuantile(std::vector<double> errors,
                                 double expected_percent_of_inliers);
 
         double estimateConfidenceInterval(double quantile, double expected_percent_of_inliers);
+
+        double findInliers(const scene::ImagePoints &u1d,
+                         const scene::ImagePoints &u2d,
+                         const Eigen::Matrix<double, Eigen::Dynamic, 1> &distortion_coefficients,
+                         const scene::FundamentalMatrix &fundamental_matrix, double expected_percent_of_inliers,
+                         std::vector<int> &inliers_indices, double image_r = 1.0);
 
 
         template<typename T>
@@ -154,6 +160,18 @@ namespace utils {
             }
 
             return denominator;
+        }
+
+        template<typename T>
+        bool checkUndistortionInvertibility(const Eigen::Matrix<T, Eigen::Dynamic, 1> &lambdas) {
+            T k1 = lambdas(0);
+            T k2 = T(0);
+            if (lambdas.rows() > 1) {
+                k2 = lambdas(1);
+            }
+            return (k1 > T(-2) and ((k1 > T(2) and (T(-1) - k1 < k2 and k2 < -(k1 * k1 / T(12)))) or
+                                    (k1 <= T(2) and (T(-1) - k1 < k2 and k2 < (T(1) - k1) / T(3.0)))));
+
         }
 
         template<typename T>
@@ -228,8 +246,8 @@ namespace utils {
                            const scene::TImagePoints<T> &u2d,
                            const Eigen::Matrix<T, Eigen::Dynamic, 1> &distortion_coefficients,
                            const scene::TFundamentalMatrix<T> &fundamental_matrix, std::vector<T> &left_residuals,
-                           std::vector<T> &right_residuals) {
-            assert(u1d.cols() == u2d.cols() && "Numbers of left and right keypoints should bee equal");
+                           std::vector<T> &right_residuals, T image_r = T(1.0)) {
+            assert(u1d.cols() == u2d.cols() && u1d.cols() > 0 && "Numbers of left and right keypoints should be equal and more than 0");
             auto number_of_points = static_cast<size_t>(u1d.cols());
             left_residuals.resize(number_of_points, T(std::numeric_limits<double>::max()));
             right_residuals.resize(number_of_points, T(std::numeric_limits<double>::max()));
@@ -239,8 +257,8 @@ namespace utils {
                 T left_residual, right_residual;
                 bool is_correct = cost(u1d.col(k), u2d.col(k), fundamental_matrix,
                                        distortion_coefficients, left_residual, right_residual);
-                left_residuals[k] = left_residual;
-                right_residuals[k] = right_residual;
+                left_residuals[k] = image_r*left_residual;
+                right_residuals[k] = image_r*right_residual;
             }
         }
 
@@ -336,7 +354,7 @@ namespace utils {
                     left_residual = (u1d - curve_point1).norm();
                     right_residual = (u2d - curve_point2).norm();
 
-                    if (std::isnan(left_residual) or std::isnan(right_residual)) {
+                    if (ceres::IsNaN(left_residual) or ceres::IsNaN(right_residual)) {
                         left_residual = T(std::numeric_limits<double>::max());
                         right_residual = T(std::numeric_limits<double>::max());
                         is_correct = false;

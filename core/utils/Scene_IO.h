@@ -26,10 +26,10 @@ namespace scene_serialization {
         explicit SimpleSceneArchiver(std::string fundamental_matrix_file_name = "",
                                      std::string left_intrinsics_parameters_file_name = "",
                                      std::string right_intrinsics_parameters_file_name = "",
-                                     std::string left_extrinsics_parameters_file_name = "",
-                                     std::string right_extrinsics_parameters_file_name = "",
                                      std::string left_keypoints_file_name = "",
-                                     std::string right_keypoints_file_name = ""
+                                     std::string right_keypoints_file_name = "",
+                                     std::string left_extrinsics_parameters_file_name = "",
+                                     std::string right_extrinsics_parameters_file_name = ""
         ) : left_keypoints_file_name_(std::move(
                 left_keypoints_file_name)), right_keypoints_file_name_(std::move(right_keypoints_file_name)),
             left_intrinsics_parameters_file_name_(

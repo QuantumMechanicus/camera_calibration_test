@@ -22,7 +22,7 @@ namespace graph {
 
         INode<TLabel> &operator=(const INode<TLabel> &rhs) = default;
 
-        //virtual TLabel getLabel() = 0;
+        virtual TLabel getLabel() const = 0;
 
     };
 

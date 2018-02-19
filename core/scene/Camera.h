@@ -18,11 +18,12 @@ namespace scene {
      * @brief Class describing position (L = RW + t, where L denotes local coordinates system and W --- world coordinates system) and camera inner parameters
      * @tparam IntrinsicsModel Parametrization of camera intrinsics model (pinhole, fisheye, etc.)
      */
-    template<typename IntrinsicsModel>
-    class Camera : public ICamera<IntrinsicsModel>, public graph::INode<> {
+    template<typename IntrinsicsModel, typename TLabel = int>
+    class Camera : public ICamera<IntrinsicsModel>, public graph::INode<TLabel> {
         std::shared_ptr<IntrinsicsModel> intrinsics_;
         Sophus::SO3d world_rotation_;
         Eigen::Vector3d world_translation_;
+        TLabel label_;
 
     public:
         /**
@@ -44,8 +45,8 @@ namespace scene {
          * @param rotation  Rotation element R of transform from world coordinates to local camera coordinates
          * @param translation Translation element t of transform from world coordinates to local camera coordinates
          */
-        Camera(const std::shared_ptr<IntrinsicsModel> intrinsics, Sophus::SO3d rotation,
-               Eigen::Vector3d translation) : intrinsics_(std::move(intrinsics)), world_rotation_(std::move(rotation)),
+        Camera(TLabel label, std::shared_ptr<IntrinsicsModel> intrinsics, Sophus::SO3d rotation,
+               Eigen::Vector3d translation) : label_(std::move(label)), intrinsics_(std::move(intrinsics)), world_rotation_(std::move(rotation)),
                                               world_translation_(std::move(translation)) {}
 
 
@@ -55,15 +56,16 @@ namespace scene {
          * @param rotation  Rotation element R of transform from world coordinates to local camera coordinates
          * @param translation Translation element t of transform from world coordinates to local camera coordinates
          */
-        Camera(const IntrinsicsModel intrinsics, Sophus::SO3d rotation,
-               Eigen::Vector3d translation) : intrinsics_(std::make_shared<IntrinsicsModel>(intrinsics)), world_rotation_(std::move(rotation)),
+        Camera(TLabel label, IntrinsicsModel intrinsics, Sophus::SO3d rotation,
+               Eigen::Vector3d translation) : label_(std::move(label)), intrinsics_(std::make_shared<IntrinsicsModel>(intrinsics)), world_rotation_(std::move(rotation)),
                                               world_translation_(std::move(translation)) {}
 
 
         /**
          * @brief Another version of constructor
          */
-        explicit Camera(const std::shared_ptr<IntrinsicsModel> intrinsics) : intrinsics_(std::move(intrinsics)),
+        Camera(TLabel label, std::shared_ptr<IntrinsicsModel> intrinsics) : label_(std::move(label)),
+                                                                                  intrinsics_(std::move(intrinsics)),
                                                                        world_rotation_() {
             world_translation_.setZero();
         }
@@ -71,7 +73,8 @@ namespace scene {
         /**
          * @brief Another version of constructor
          */
-        explicit Camera(const std::shared_ptr<const IntrinsicsModel> intrinsics) : intrinsics_(std::move(intrinsics)),
+        Camera(TLabel label, std::shared_ptr<const IntrinsicsModel> intrinsics) : label_(std::move(label)),
+                                                                                  intrinsics_(std::move(intrinsics)),
                                                                              world_rotation_() {
             world_translation_.setZero();
         }
@@ -146,6 +149,10 @@ namespace scene {
          */
         unsigned int getWidth() const {
             return (*intrinsics_).getWidth();
+        }
+
+        TLabel getLabel() const override {
+            return label_;
         }
 
     };

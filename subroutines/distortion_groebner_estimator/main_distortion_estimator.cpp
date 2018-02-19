@@ -8,7 +8,13 @@
 
 int main(int argc, char *argv[]) {
     double w, h, r;
-    std::string input1, input2, f_estimated_lambda, f_estimated_fundamental_matrix, f_inliers_list;
+    std::string input1,
+            input2,
+            f_estimated_lambda,
+            f_estimated_fundamental_matrix,
+            f_inliers_list,
+            f_left_camera_info,
+            f_right_camera_info;
     int iter;
     double lambda_upper_bound;
     double lambda_lower_bound;
@@ -29,12 +35,17 @@ int main(int argc, char *argv[]) {
                         "./estimated_f"), "Output file for fundamental matrix estimation")
                 ("lf", po::value<std::string>(&f_estimated_lambda)->default_value(
                         "./estimated_lambda"), "Output file for lambda estimation")
+                ("lci", po::value<std::string>(&f_left_camera_info)->default_value("./left_camera_info"),
+                 "File with information about left camera (number of other description)")
+                ("rci", po::value<std::string>(&f_right_camera_info)->default_value("./right_camera_info"),
+                        "File with information about left camera (number of other description)")
                 ("i", po::value<int>(&iter)->default_value(10000), "Number of iterations")
-                ("w", po::value<double>(&w)->default_value(7360), "Width")
-                ("h", po::value<double>(&h)->default_value(4912), "Height")
-                ("q", po::value<double>(&percent_of_inliers)->default_value(0.1), "quantile to minimize")
-                ("if", po::value<std::string>(&f_inliers_list)->default_value("./automatic_solver_results/inliers"),
-                 "Output file for inliers");
+                        ("w", po::value<double>(&w)->default_value(7360), "Width")
+                        ("h", po::value<double>(&h)->default_value(4912), "Height")
+                        ("q", po::value<double>(&percent_of_inliers)->default_value(0.1), "quantile to minimize")
+                        ("if",
+                         po::value<std::string>(&f_inliers_list)->default_value("./automatic_solver_results/inliers"),
+                         "Output file for inliers");
 
         po::variables_map vm;
         po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -59,10 +70,15 @@ int main(int argc, char *argv[]) {
     std::shared_ptr<intrinsics::StandardDivisionModelIntrinsic> intrinsics = std::make_shared<intrinsics::StandardDivisionModelIntrinsic>(
             w, h);
 
-    scene::Camera<intrinsics::StandardDivisionModelIntrinsic> left_camera(intrinsics);
-    scene::Camera<intrinsics::StandardDivisionModelIntrinsic> right_camera(intrinsics);
+    scene::Camera<intrinsics::StandardDivisionModelIntrinsic> left_camera(0, intrinsics);
+    scene::Camera<intrinsics::StandardDivisionModelIntrinsic> right_camera(1, intrinsics);
+    std::shared_ptr<std::map<int, scene::Camera<intrinsics::StandardDivisionModelIntrinsic> > > cameras = std::make_shared<std::map<int, scene::Camera<intrinsics::StandardDivisionModelIntrinsic> > >(
+            std::map<int, scene::Camera<intrinsics::StandardDivisionModelIntrinsic> >());
 
-    scene::TwoView<intrinsics::DivisionModelIntrinsic<1>> stereo_pair(left_camera, right_camera, u1d, u2d);
+    (*cameras)[0] = left_camera;
+    (*cameras)[1] = right_camera;
+
+    scene::TwoView<intrinsics::DivisionModelIntrinsic<1>> stereo_pair(cameras, left_camera, right_camera, u1d, u2d);
     stereo_pair.normalizeLeftKeypoints();
     stereo_pair.normalizeRightKeypoints();
 
@@ -73,8 +89,8 @@ int main(int argc, char *argv[]) {
                                                                   stereo_pair.getRightKeypoints(), opt);
     stereo_pair.estimateLeftIntrinsics(groebner_estimator);
     stereo_pair.estimateFundamentalMatrix(groebner_estimator);
-    scene_serialization::SimpleSceneArchiver<scene_serialization::SimpleDivisionModelArchiver<1>>
-            archiver(f_estimated_fundamental_matrix, f_estimated_lambda, f_estimated_lambda);
+    scene_serialization::SimpleSceneArchiver<scene_serialization::SimpleDivisionModelArchiver<>>
+            archiver(f_estimated_fundamental_matrix, f_estimated_lambda, f_estimated_lambda, "", "",f_left_camera_info, f_right_camera_info);
     stereo_pair.saveScene(archiver);
 
 

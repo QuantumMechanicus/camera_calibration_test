@@ -9,39 +9,54 @@
 #include "INode.h"
 
 namespace graph {
-    template<typename TNode = INode<>, typename TWeight = double>
+    template<typename TVertex, typename TNodeLabel = int, typename TWeight = double>
     class AbstractEdge {
     protected:
 
-        //TODO
-        //std::weak_ptr<TNode> st_vertex_{};
-        //std::weak_ptr<TNode> end_vertex_{};
+        TNodeLabel start_vertex_label_;
+        TNodeLabel end_vertex_label_;
+        std::shared_ptr<std::map<TNodeLabel, TVertex>> ptr_to_list_of_vertices_{};
 
-        TNode st_vertex_{};
-        TNode end_vertex_{};
+        //TODO
+        //std::weak_ptr<TNodeLabel> st_vertex_{};
+        //std::weak_ptr<TNodeLabel> end_vertex_{};
+
+        //TNodeLabel st_vertex_{};
+        //TNodeLabel end_vertex_{};
 
     public:
 
-        AbstractEdge<TNode, TWeight>() = default;
+        AbstractEdge() = default;
 
-        AbstractEdge<TNode, TWeight>(const AbstractEdge<TNode, TWeight> &rhs) = default;
+        AbstractEdge(const AbstractEdge<TVertex, TNodeLabel, TWeight> &rhs) = default;
 
-        AbstractEdge<TNode, TWeight>(AbstractEdge<TNode, TWeight> &&rhs) noexcept = default;
+        AbstractEdge(AbstractEdge<TVertex, TNodeLabel, TWeight> &&rhs) noexcept = default;
 
-        /*AbstractEdge<TNode, TWeight>(std::shared_ptr<TNode> st_vertex, std::shared_ptr<TNode> end_vertex) :
+        /*AbstractEdge<TNodeLabel, TWeight>(std::shared_ptr<TNodeLabel> st_vertex, std::shared_ptr<TNodeLabel> end_vertex) :
                 st_vertex_(st_vertex),
                 end_vertex_(end_vertex) {}*/
 
-        AbstractEdge<TNode, TWeight>(TNode st_vertex, TNode end_vertex) :
-                st_vertex_(std::move(st_vertex)),
-                end_vertex_(std::move(end_vertex)) {}
+        AbstractEdge(TNodeLabel st_vertex, TNodeLabel end_vertex,
+                     std::shared_ptr<std::map<TNodeLabel, TVertex>> ptr_to_list_of_vertices) :
+                ptr_to_list_of_vertices_(std::move(ptr_to_list_of_vertices)),
+                start_vertex_label_(std::move(st_vertex)),
+                end_vertex_label_(std::move(end_vertex)){}
 
 
-        virtual ~AbstractEdge<TNode, TWeight>() = default;
+        virtual ~AbstractEdge() = default;
 
-        AbstractEdge<TNode, TWeight> &operator=(AbstractEdge<TNode, TWeight> &&rhs) noexcept = default;
+        AbstractEdge &operator=(AbstractEdge<TVertex, TNodeLabel, TWeight> &&rhs) noexcept = default;
 
-        AbstractEdge<TNode, TWeight> &operator=(const AbstractEdge<TNode, TWeight> &rhs) = default;
+        AbstractEdge &operator=(const AbstractEdge<TVertex,TNodeLabel, TWeight> &rhs) = default;
+
+        const TVertex &getStartVertex() const {
+            return ptr_to_list_of_vertices_->at(start_vertex_label_);
+        }
+
+        const TVertex &getFinishVertex() const{
+            return ptr_to_list_of_vertices_->at(end_vertex_label_);
+        }
+
 
         //virtual TWeight getWeight() const = 0;
 

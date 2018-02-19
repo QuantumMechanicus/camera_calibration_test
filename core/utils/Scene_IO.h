@@ -103,23 +103,23 @@ namespace scene_serialization {
             } else {
                 right_intrinsics = left_intrinsics;
             }
-            internal_scene::Camera<typename IntrinsicsArchiver::Model> left_camera, right_camera;
+            scene::Camera<typename IntrinsicsArchiver::Model> left_camera, right_camera;
             if (left_intrinsics == right_intrinsics) {
-                left_camera = internal_scene::Camera<typename IntrinsicsArchiver::Model>(
+                left_camera = scene::Camera<typename IntrinsicsArchiver::Model>(
                         std::make_shared<typename IntrinsicsArchiver::Model>(left_intrinsics),
                         left_motion.rotationMatrix(),
                         left_motion.translation());
-                right_camera = internal_scene::Camera<typename IntrinsicsArchiver::Model>(left_camera.getIntrinsicsPointer(),
+                right_camera = scene::Camera<typename IntrinsicsArchiver::Model>(left_camera.getIntrinsicsPointer(),
                                                                                           right_motion.rotationMatrix(),
                                                                                           right_motion.translation());
 
 
             } else {
-                left_camera = internal_scene::Camera<typename IntrinsicsArchiver::Model>(
+                left_camera = scene::Camera<typename IntrinsicsArchiver::Model>(
                         std::make_shared<typename IntrinsicsArchiver::Model>(left_intrinsics),
                         left_motion.rotationMatrix(),
                         left_motion.translation());
-                right_camera = internal_scene::Camera<typename IntrinsicsArchiver::Model>(
+                right_camera = scene::Camera<typename IntrinsicsArchiver::Model>(
                         std::make_shared<typename IntrinsicsArchiver::Model>(right_intrinsics),
                         right_motion.rotationMatrix(),
                         right_motion.translation());

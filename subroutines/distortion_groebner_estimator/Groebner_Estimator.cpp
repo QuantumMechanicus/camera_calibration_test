@@ -35,7 +35,21 @@ namespace estimators {
         return is_estimated_;
     }
 
-    void GroebnerDivisionModelEstimator::estimate() {
+
+    double GroebnerDivisionModelEstimator::computeErrorsAndEstimateQuantile(double distortion_coefficient,
+                                                                            const scene::FundamentalMatrix &fundamental_matrix) {
+        Eigen::Matrix<double, 1, 1> distortion_coefficients;
+        std::vector<double> errors(number_of_points_);
+        distortion_coefficients(0) = distortion_coefficient;
+        utils::distortion_problem::computeErrors<utils::distortion_problem::EpipolarCurveDistanceError, double>(u1d_, u2d_, distortion_coefficients, fundamental_matrix, left_residuals_, right_residuals_);
+        for (std::size_t k = 0; k < number_of_points_; ++k)
+        {
+            errors[k] = std::abs(left_residuals_[k]) + std::abs(right_residuals_[k]);
+        }
+        return utils::distortion_problem::estimateQuantile(errors, options_.quantile_to_minimize);
+    }
+
+    void GroebnerDivisionModelEstimator::estimateImpl() {
         is_estimated_ = true;
         ppx_ = 0;
         ppy_ = 0;
@@ -100,17 +114,12 @@ namespace estimators {
         std::cout << min_quantile << " " << lambdas_(0) << std::endl;
     }
 
-    double GroebnerDivisionModelEstimator::computeErrorsAndEstimateQuantile(double distortion_coefficient,
-                                                                            const scene::FundamentalMatrix &fundamental_matrix) {
-        Eigen::Matrix<double, 1, 1> distortion_coefficients;
-        std::vector<double> errors(number_of_points_);
-        distortion_coefficients(0) = distortion_coefficient;
-        utils::distortion_problem::computeErrors<utils::distortion_problem::EpipolarCurveDistanceError, double>(u1d_, u2d_, distortion_coefficients, fundamental_matrix, left_residuals_, right_residuals_);
-        for (std::size_t k = 0; k < number_of_points_; ++k)
-        {
-            errors[k] = std::abs(left_residuals_[k]) + std::abs(right_residuals_[k]);
-        }
-        return utils::distortion_problem::estimateQuantile(errors, options_.quantile_to_minimize);
+    void GroebnerDivisionModelEstimator::getEstimationImpl(intrinsics::DivisionModelIntrinsic<1> &result) {
+        result = intrinsics::DivisionModelIntrinsic<1>(lambdas_, 0, 0, f_, ppx_, ppy_);
+    }
+
+    void GroebnerDivisionModelEstimator::getEstimationImpl(scene::FundamentalMatrix &result) {
+        result = fundamental_matrix_;
     }
 
 

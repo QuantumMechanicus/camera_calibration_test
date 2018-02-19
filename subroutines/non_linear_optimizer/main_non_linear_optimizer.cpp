@@ -99,10 +99,10 @@ int main(int argc, char *argv[]) {
         fundamental_matrices.push_back(stereo_pairs[k].getFundamentalMatrix());
 
         stereo_pairs[k] = scene::TwoView<intrinsics::DivisionModelIntrinsic<Eigen::Dynamic>>(
-                internal_scene::Camera<intrinsics::DivisionModelIntrinsic<Eigen::Dynamic>>(common_intrinsics_parameters,
+                scene::Camera<intrinsics::DivisionModelIntrinsic<Eigen::Dynamic>>(common_intrinsics_parameters,
                                                                                            stereo_pairs[k].getLeftRotation(),
                                                                                            stereo_pairs[k].getLeftTranslation()),
-                internal_scene::Camera<intrinsics::DivisionModelIntrinsic<Eigen::Dynamic>>(common_intrinsics_parameters,
+                scene::Camera<intrinsics::DivisionModelIntrinsic<Eigen::Dynamic>>(common_intrinsics_parameters,
                                                                                            stereo_pairs[k].getRightRotation(),
                                                                                            stereo_pairs[k].getRightTranslation()),
                 stereo_pairs[k].getLeftKeypoints(), stereo_pairs[k].getRightKeypoints(),
@@ -120,10 +120,10 @@ int main(int argc, char *argv[]) {
     for (size_t k = 0; k < number_of_pairs; ++k) {
 
         stereo_pairs[k] = scene::TwoView<intrinsics::DivisionModelIntrinsic<Eigen::Dynamic>>(
-                internal_scene::Camera<intrinsics::DivisionModelIntrinsic<Eigen::Dynamic>>(common_intrinsics_parameters,
+                scene::Camera<intrinsics::DivisionModelIntrinsic<Eigen::Dynamic>>(common_intrinsics_parameters,
                                                                                            stereo_pairs[k].getLeftRotation(),
                                                                                            stereo_pairs[k].getLeftTranslation()),
-                internal_scene::Camera<intrinsics::DivisionModelIntrinsic<Eigen::Dynamic>>(common_intrinsics_parameters,
+                scene::Camera<intrinsics::DivisionModelIntrinsic<Eigen::Dynamic>>(common_intrinsics_parameters,
                                                                                            stereo_pairs[k].getRightRotation(),
                                                                                            stereo_pairs[k].getRightTranslation()),
                 stereo_pairs[k].getLeftKeypoints(), stereo_pairs[k].getRightKeypoints());

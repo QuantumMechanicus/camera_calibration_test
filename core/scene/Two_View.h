@@ -7,6 +7,8 @@
 
 #include <utility>
 #include "Camera.h"
+#include "../interfaces/ITwoView.h"
+#include "../interfaces/AbstractEdge.h"
 
 namespace scene {
 
@@ -40,10 +42,10 @@ namespace scene {
     typedef Eigen::Matrix3d FundamentalMatrix;
 
     template<typename IntrinsicsModel>
-    class TwoView {
-        internal_scene::Camera<IntrinsicsModel> left_camera_;
-        internal_scene::Camera<IntrinsicsModel> right_camera_;
+    class TwoView : public graph::AbstractEdge<scene::Camera<IntrinsicsModel>>, public ITwoView<IntrinsicsModel> {
 
+        Eigen::Vector3d relativeTranslation_{};
+        Sophus::SO3d relativeRotation_{};
         ImagePoints left_keypoints_{};
         ImagePoints right_keypoints_{};
         FundamentalMatrix bifocal_tensor_{};
@@ -52,25 +54,30 @@ namespace scene {
 
     public:
 
+        //using graph::AbstractEdge<scene::Camera<IntrinsicsModel>>::doesExist;
+        using graph::AbstractEdge<scene::Camera<IntrinsicsModel>>::st_vertex_;
+        using graph::AbstractEdge<scene::Camera<IntrinsicsModel>>::end_vertex_;
+
+
         TwoView() = default;
 
-        TwoView(internal_scene::Camera<IntrinsicsModel> left_camera,
-                internal_scene::Camera<IntrinsicsModel> right_camera,
+        TwoView(scene::Camera<IntrinsicsModel> left_camera,
+                scene::Camera<IntrinsicsModel> right_camera,
                 ImagePoints left_keypoints,
                 ImagePoints right_keypoints,
-                FundamentalMatrix bifocal_tensor) : left_camera_(std::move(left_camera)),
-                                                    right_camera_(std::move(right_camera)),
+                FundamentalMatrix bifocal_tensor) : graph::AbstractEdge<scene::Camera<IntrinsicsModel>>(left_camera, right_camera),
                                                     left_keypoints_(std::move(left_keypoints)),
                                                     right_keypoints_(std::move(right_keypoints)),
                                                     bifocal_tensor_(std::move(bifocal_tensor)) {
             number_of_points_ = TwoView::left_keypoints_.cols();
+            relativeRotation_ = Sophus::SO3d();
+            relativeTranslation_.setZero();
         }
 
-        TwoView(internal_scene::Camera<IntrinsicsModel> left_camera,
-                internal_scene::Camera<IntrinsicsModel> right_camera,
+        TwoView(scene::Camera<IntrinsicsModel> left_camera,
+                scene::Camera<IntrinsicsModel> right_camera,
                 ImagePoints left_keypoints,
-                ImagePoints right_keypoints) : left_camera_(std::move(left_camera)),
-                                               right_camera_(std::move(right_camera)),
+                ImagePoints right_keypoints) : graph::AbstractEdge<scene::Camera<IntrinsicsModel>>(left_camera, right_camera),
                                                left_keypoints_(std::move(left_keypoints)),
                                                right_keypoints_(std::move(right_keypoints)) {
             bifocal_tensor_.setZero();
@@ -78,67 +85,80 @@ namespace scene {
         }
 
         void normalizeLeftKeypoints() {
-            double w = left_camera_.getWidth();
-            double h = left_camera_.getHeight();
-            double r = std::sqrt(w * w + h * h) / 2.0;
-            left_keypoints_.row(0) =
-                    (left_keypoints_.row(0) - (w / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose()) / r;
-            left_keypoints_.row(1) =
-                    (left_keypoints_.row(1) - (h / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose()) / r;
+            //if (doesExist()) {
+                auto *left_camera_ = &st_vertex_;//.lock();
+                double w = left_camera_->getWidth();
+                double h = left_camera_->getHeight();
+                double r = std::sqrt(w * w + h * h) / 2.0;
+                left_keypoints_.row(0) =
+                        (left_keypoints_.row(0) - (w / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose()) / r;
+                left_keypoints_.row(1) =
+                        (left_keypoints_.row(1) - (h / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose()) / r;
 
 
+            //}
         }
 
         void normalizeRightKeypoints() {
-            double w = right_camera_.getWidth();
-            double h = right_camera_.getHeight();
-            double r = std::sqrt(w * w + h * h) / 2.0;
-            right_keypoints_.row(0) =
-                    (right_keypoints_.row(0) - (w / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose()) / r;
-            right_keypoints_.row(1) =
-                    (right_keypoints_.row(1) - (h / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose()) / r;
+            //if (doesExist()) {
+                auto *right_camera_ = &end_vertex_;//.lock();
+                double w = right_camera_->getWidth();
+                double h = right_camera_->getHeight();
+                double r = std::sqrt(w * w + h * h) / 2.0;
+                right_keypoints_.row(0) =
+                        (right_keypoints_.row(0) - (w / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose()) /
+                        r;
+                right_keypoints_.row(1) =
+                        (right_keypoints_.row(1) - (h / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose()) /
+                        r;
+           // }
 
         }
 
         void denormalizeLeftKeypoints() {
-            double w = left_camera_.getWidth();
-            double h = left_camera_.getHeight();
-            double r = std::sqrt(w * w + h * h) / 2.0;
-            left_keypoints_.row(0) =
-                    r * left_keypoints_.row(0) + (w / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose();
-            left_keypoints_.row(1) =
-                    r * left_keypoints_.row(1) + (h / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose();
+            //if (doesExist()) {
+                auto *left_camera_ = &st_vertex_;//.lock();
+                double w = left_camera_->getWidth();
+                double h = left_camera_->getHeight();
+                double r = std::sqrt(w * w + h * h) / 2.0;
+                left_keypoints_.row(0) =
+                        r * left_keypoints_.row(0) + (w / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose();
+                left_keypoints_.row(1) =
+                        r * left_keypoints_.row(1) + (h / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose();
 
-
+            //}
         }
 
         void denormalizeRightKeypoints() {
-            double w = right_camera_.getWidth();
-            double h = right_camera_.getHeight();
-            double r = std::sqrt(w * w + h * h) / 2.0;
-            right_keypoints_.row(0) =
-                    r * right_keypoints_.row(0) + (w / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose();
-            right_keypoints_.row(1) =
-                    r * right_keypoints_.row(1) + (h / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose();
-
+            //if (doesExist()) {
+                auto *right_camera_ = &end_vertex_;//.lock();
+                double w = right_camera_->getWidth();
+                double h = right_camera_->getHeight();
+                double r = std::sqrt(w * w + h * h) / 2.0;
+                right_keypoints_.row(0) =
+                        r * right_keypoints_.row(0) + (w / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose();
+                right_keypoints_.row(1) =
+                        r * right_keypoints_.row(1) + (h / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose();
+            //}
         }
 
 
-        template<typename IntrinsicsEstimator>
-        void estimateLeftIntrinsics(IntrinsicsEstimator &estimator) {
-            left_camera_.estimateIntrinsics(estimator);
+        void estimateLeftIntrinsics(estimators::AbstractEstimator<IntrinsicsModel> &estimator) {
+            //if (doesExist())
+                //st_vertex_.lock()->estimateIntrinsics(estimator);
+            st_vertex_.estimateIntrinsics(estimator);
         }
 
-        template<typename IntrinsicsEstimator>
-        void estimateRightIntrinsics(IntrinsicsEstimator &estimator) {
-            right_camera_.estimateIntrinsics(estimator);
+
+        void estimateRightIntrinsics(estimators::AbstractEstimator<IntrinsicsModel> &estimator) {
+            //if (doesExist())
+                //end_vertex_.lock()->estimateIntrinsics(estimator);
+            end_vertex_.estimateIntrinsics(estimator);
         }
 
-        template<typename FundamentalMatrixEstimator>
-        void estimateFundamentalMatrix(FundamentalMatrixEstimator &estimator) {
-            if (!estimator.isEstimated())
-                estimator.estimate();
-            bifocal_tensor_ = estimator.getFundamentalMatrix();
+
+        void estimateFundamentalMatrix(estimators::AbstractEstimator<FundamentalMatrix> &estimator) override {
+            bifocal_tensor_ = estimator.getEstimation();
         }
 
         template<typename SceneArchiver>
@@ -164,39 +184,51 @@ namespace scene {
         }
 
         const std::shared_ptr<IntrinsicsModel> getLeftIntrinsicsPointer() const {
-            return left_camera_.getIntrinsicsPointer();
+            /*if (doesExist())
+                return st_vertex_.lock()->getIntrinsicsPointer();*/
+            return st_vertex_.getIntrinsicsPointer();
         }
 
         const std::shared_ptr<IntrinsicsModel> getRightIntrinsicsPointer() const {
-            return right_camera_.getIntrinsicsPointer();
+            /*if (doesExist())
+                return end_vertex_.lock()->getIntrinsicsPointer();*/
+            return end_vertex_.getIntrinsicsPointer();
         }
 
         const IntrinsicsModel &getLeftIntrinsics() const {
-            return left_camera_.getIntrinsics();
+            /*if (doesExist())
+                return st_vertex_.lock()->getIntrinsics();*/
+            return st_vertex_.getIntrinsics();
         }
 
         const IntrinsicsModel &getRightIntrinsics() const {
-            return right_camera_.getIntrinsics();
+            /*if (doesExist())
+                return end_vertex_.lock()->getIntrinsics();*/
+            return end_vertex_.getIntrinsics();
         }
 
         const Sophus::SO3d &getLeftRotation() const {
-
-            return left_camera_.getRotation();
+            /*if (doesExist())
+                return st_vertex_.lock()->getRotation();*/
+            return st_vertex_.getRotation();
         }
 
         const Sophus::SO3d &getRightRotation() const {
-
-            return right_camera_.getRotation();
+            /*if (doesExist())
+                return end_vertex_.lock()->getRotation();*/
+            return end_vertex_.getRotation();
         }
 
         const Eigen::Vector3d &getLeftTranslation() const {
-
-            return left_camera_.getTranslation();
+            /*if (doesExist())
+                return st_vertex_.lock()->getTranslation();*/
+            return st_vertex_.getTranslation();
         }
 
         const Eigen::Vector3d &getRightTranslation() const {
-
-            return right_camera_.getTranslation();
+            /*if (doesExist())
+                return end_vertex_.lock()->getTranslation();*/
+            return end_vertex_.getTranslation();
         }
 
 

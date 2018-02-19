@@ -59,8 +59,8 @@ int main(int argc, char *argv[]) {
     std::shared_ptr<intrinsics::StandardDivisionModelIntrinsic> intrinsics = std::make_shared<intrinsics::StandardDivisionModelIntrinsic>(
             w, h);
 
-    internal_scene::Camera<intrinsics::StandardDivisionModelIntrinsic> left_camera(intrinsics);
-    internal_scene::Camera<intrinsics::StandardDivisionModelIntrinsic> right_camera(intrinsics);
+    scene::Camera<intrinsics::StandardDivisionModelIntrinsic> left_camera(intrinsics);
+    scene::Camera<intrinsics::StandardDivisionModelIntrinsic> right_camera(intrinsics);
 
     scene::TwoView<intrinsics::DivisionModelIntrinsic<1>> stereo_pair(left_camera, right_camera, u1d, u2d);
     stereo_pair.normalizeLeftKeypoints();

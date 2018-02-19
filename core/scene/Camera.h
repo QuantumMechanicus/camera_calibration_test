@@ -10,14 +10,16 @@
 #include "Sophus/sophus/so3.hpp"
 #include "Sophus/sophus/se3.hpp"
 #include "Camera_Intrinsics.h"
+#include "../interfaces/ICamera.h"
+#include "../interfaces/INode.h"
 
-namespace internal_scene {
+namespace scene {
     /**
      * @brief Class describing position (L = RW + t, where L denotes local coordinates system and W --- world coordinates system) and camera inner parameters
      * @tparam IntrinsicsModel Parametrization of camera intrinsics model (pinhole, fisheye, etc.)
      */
     template<typename IntrinsicsModel>
-    class Camera {
+    class Camera : public ICamera<IntrinsicsModel>, public graph::INode<> {
         std::shared_ptr<IntrinsicsModel> intrinsics_;
         Sophus::SO3d world_rotation_;
         Eigen::Vector3d world_translation_;
@@ -27,6 +29,14 @@ namespace internal_scene {
          * @brief Constructor
          */
         Camera() = default;
+
+        Camera(Camera &&rhs) noexcept = default;
+
+        Camera(const Camera &rhs) = default;
+
+        Camera &operator=(const Camera &rhs) = default;
+
+        Camera &operator=(Camera &&rhs) noexcept = default;
 
         /**
          * @brief Constructor
@@ -72,11 +82,23 @@ namespace internal_scene {
          * @param estimator Instance of intrinsic estimator
          */
 
-        template<typename IntrinsicsEstimator>
-        void estimateIntrinsics(IntrinsicsEstimator &estimator) {
 
+        void estimateIntrinsics(estimators::AbstractEstimator<IntrinsicsModel> &estimator) override
+        {
             intrinsics_->estimateParameters(estimator);
         }
+
+        void estimatedExtrinsicsRotation(estimators::AbstractEstimator<Sophus::SO3d> &estimator) override {
+            world_rotation_ = estimator.getEstimation();
+        }
+
+        void estimatedExtrinsicsTranslation(estimators::AbstractEstimator<Eigen::Vector3d> &estimator) override {
+            world_translation_ = estimator.getEstimation();
+        }
+
+        /*void estimatedExtrinsicsMotion(estimators::AbstractEstimator<Sophus::SE3d> &estimator) override {
+
+        }*/
 
         /**
          * @brief Getter for intrinsic parameters
@@ -127,5 +149,6 @@ namespace internal_scene {
         }
 
     };
+
 }
 #endif //CAMERA_CALIBRATION_CAMERA_H

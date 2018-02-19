@@ -9,6 +9,5 @@
 #include "../utils/Scene_IO.h"
 #include "../scene/Camera_Intrinsics.h"
 #include "../scene/Two_View.h"
-#include "../utils/Estimator.h"
 
 #endif //CAMERA_CALIBRATION_CORE_H

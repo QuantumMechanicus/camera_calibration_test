@@ -6,6 +6,7 @@
 #define CAMERA_CALIBRATION_GROEBNER_ESTIMATOR_H
 
 #include "Core.h"
+#include <random>
 
 namespace estimators {
 
@@ -21,8 +22,14 @@ namespace estimators {
     };
 
     class GroebnerDivisionModelEstimator
-            : public internal::DivisionModelIntrinsicsEstimator<1>, public estimators::internal::FundamentalMatrixEstimator {
+            : public estimators::AbstractEstimator<intrinsics::DivisionModelIntrinsic<1>>,
+              public estimators::AbstractEstimator<scene::FundamentalMatrix> {
 
+        double ppx_;
+        double ppy_;
+        double f_;
+        Eigen::Matrix<double, 1, 1> lambdas_;
+        scene::FundamentalMatrix fundamental_matrix_;
         scene::ImagePoints u1d_, u2d_;
         std::size_t number_of_points_;
         GroebnerEstimatorOptions options_;
@@ -56,9 +63,15 @@ namespace estimators {
 
         void setOptions(const GroebnerEstimatorOptions &options_);
 
-        void estimate() override;
-
         bool isEstimated() const override;
+
+    protected:
+        void estimateImpl() override;
+
+        void getEstimationImpl(intrinsics::DivisionModelIntrinsic<1> &result) override;
+
+        void getEstimationImpl(scene::FundamentalMatrix &result) override;
+
 
     };
 }

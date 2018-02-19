@@ -6,7 +6,7 @@
 #define CAMERA_CALIBRATION_CAMERA_INTRINSICS_H
 
 #include <Eigen/Dense>
-#include "../utils/Estimator.h"
+#include "../interfaces/AbstractEstimator.h"
 
 
 namespace intrinsics {
@@ -14,6 +14,7 @@ namespace intrinsics {
 /**
  * @brief Base class to store intrinsic parameters of camera (e. g. width, height, focal length)
  */
+    template <typename Derived>
     class IntrinsicsBase {
 
     protected:
@@ -25,7 +26,7 @@ namespace intrinsics {
          * @param other Instance of intrinsics
          * @return True if type of other and this the same and their fields are equal
          */
-        virtual bool isEqual(const IntrinsicsBase &other) const = 0;
+        virtual bool isEqualImpl(const IntrinsicsBase<Derived> &other) const = 0;
 
     public:
         /**
@@ -33,7 +34,7 @@ namespace intrinsics {
          * @param w Width of the image
          * @param h Height of the image
          */
-        explicit IntrinsicsBase(unsigned int w = 0, unsigned int h = 0);
+        explicit IntrinsicsBase(unsigned int w = 0, unsigned int h = 0) : w_(w), h_(h) {};
 
         /**
         * @brief Destructor
@@ -44,27 +45,36 @@ namespace intrinsics {
         * @brief Method for identifying unknown parameters of model
         * @param estimator Class with 'estimate' method
         */
-        virtual void estimateParameters(estimators::internal::BaseEstimator &estimator) = 0;
+        virtual void estimateParameters(estimators::AbstractEstimator<Derived> &estimator) = 0;
 
 
         /**
          * @brief Getter for width of the image
          * @return width of the image
          */
-        unsigned int getWidth() const;
+        unsigned int getWidth() const
+        {
+            return w_;
+        }
 
         /**
          * @brief Getter for height of the image
          * @return height of the image
          */
-        unsigned int getHeight() const;
+        unsigned int getHeight() const
+        {
+            return h_;
+        }
 
         /**
         * @brief Equality operator
         * @param other Instance of intrinsics
         * @return True if type of other and this the same and their fields are equal
         */
-        bool operator==(const IntrinsicsBase &other) const;
+        bool operator==(const IntrinsicsBase<Derived>& other) const
+        {
+            return isEqualImpl(other);
+        }
 
     };
 
@@ -73,7 +83,7 @@ namespace intrinsics {
  * \f$ x_u = \frac{x_d}{1 + \lambda_1 ||x_d||^2 + ... \lambda_N ||x_d||^{2N}} \f$
  */
     template<int N = 1>
-    class DivisionModelIntrinsic : public IntrinsicsBase {
+    class DivisionModelIntrinsic : public IntrinsicsBase<DivisionModelIntrinsic<N>> {
         double ppx_{};
         double ppy_{};
         double f_{};
@@ -82,7 +92,7 @@ namespace intrinsics {
         /**
          * @brief See definition above
          */
-        bool isEqual(const IntrinsicsBase &other) const override {
+        bool isEqualImpl(const IntrinsicsBase<DivisionModelIntrinsic<N>> &other) const override {
             const auto *other_casted = dynamic_cast<const DivisionModelIntrinsic<N> *>(&other);
             return other_casted != nullptr && ppx_ == other_casted->getPrincipalPointX() &&
                    ppy_ == other_casted->getPrincipalPointY() &&
@@ -106,7 +116,7 @@ namespace intrinsics {
         explicit DivisionModelIntrinsic(const Eigen::Matrix<double, N, 1> &lambdas, unsigned int w = 0, unsigned int h = 0,
                                         double f = 0, double ppx = 0,
                                         double ppy = 0)
-                : IntrinsicsBase(w,h), ppx_(ppx),
+                : IntrinsicsBase<DivisionModelIntrinsic>(w,h), ppx_(ppx),
                   ppy_(ppy),
                   f_(f),
                   lambdas_(lambdas) {}
@@ -122,7 +132,7 @@ namespace intrinsics {
         explicit DivisionModelIntrinsic(unsigned int n, const Eigen::Matrix<double, N, 1> &lambdas, unsigned int w = 0, unsigned int h = 0,
                                double f = 0, double ppx = 0,
                                double ppy = 0)
-                : IntrinsicsBase(w,h), ppx_(ppx),
+                : IntrinsicsBase<DivisionModelIntrinsic>(w,h), ppx_(ppx),
                   ppy_(ppy),
                   f_(f),
                   lambdas_(lambdas) {}
@@ -134,7 +144,7 @@ namespace intrinsics {
          * @param f Focal length
          */
         DivisionModelIntrinsic(unsigned int w, unsigned int h, double f = 0, double ppx = 0,
-                                        double ppy = 0) : IntrinsicsBase(w, h), ppx_(ppx), ppy_(ppy),
+                                        double ppy = 0) : IntrinsicsBase<DivisionModelIntrinsic>(w, h), ppx_(ppx), ppy_(ppy),
                                                           f_(f) {
             assert(N != Eigen::Dynamic && "You should pass number of parameters for dynamic model");
             lambdas_.setZero();
@@ -148,7 +158,7 @@ namespace intrinsics {
          * @param n Number of distortion coefficients (lambdas)
          */
         DivisionModelIntrinsic(unsigned int n, unsigned int w, unsigned int h, double f = 0, double ppx = 0,
-                                        double ppy = 0) : IntrinsicsBase(w, h), ppx_(ppx), ppy_(ppy),
+                                        double ppy = 0) : IntrinsicsBase<DivisionModelIntrinsic>(w, h), ppx_(ppx), ppy_(ppy),
                                                           f_(f) {
             lambdas_.resize(n, Eigen::NoChange);
             lambdas_.setZero();
@@ -159,24 +169,12 @@ namespace intrinsics {
          * @param Class with 'estimate' principal point, focal length and distortion coefficients
          */
 
-        void estimateParameters(estimators::internal::BaseEstimator &estimator) override {
-            try {
-                auto &division_model_estimator = dynamic_cast<estimators::internal::DivisionModelIntrinsicsEstimator<N> &>(estimator);
-                if (!division_model_estimator.isEstimated())
-                    division_model_estimator.estimate();
-
-                ppx_ = division_model_estimator.getPrincipalPointX();
-                ppy_ = division_model_estimator.getPrincipalPointY();
-                f_ = division_model_estimator.getFocalLength();
-                lambdas_ = division_model_estimator.getDistortionCoefficients();
-            }
-            catch (const std::bad_cast &e) {
-                ppx_ = 0;
-                ppy_ = 0;
-                f_ = 0;
-                lambdas_.setZero();
-            }
-
+        void estimateParameters(estimators::AbstractEstimator<DivisionModelIntrinsic<N>> &estimator) override {
+            auto res = estimator.getEstimation();
+            ppx_= res.getPrincipalPointX();
+            ppy_= res.getPrincipalPointY();
+            f_ = res.getFocalLength();
+            lambdas_ = res.getDistortionCoefficients();
         }
 
         /**
@@ -230,23 +228,6 @@ namespace intrinsics {
             if (new_size > old_size)
                 lambdas_.bottomRows(new_size-old_size).setZero();
         }
-    };
-
-/**
- * @brief If there is no distortion coefficients it is pinhole model
- */
-    template<>
-    class DivisionModelIntrinsic<0> {
-        double ppx_;
-        double ppy_;
-        double f_;
-
-    public:
-        /**
-         * @brief See definitions above
-         */
-        explicit DivisionModelIntrinsic(double f_ = 0, double ppx_ = 0, double ppy_ = 0) : ppx_(ppx_), ppy_(ppy_),
-                                                                                           f_(f_) {}
     };
 
     using PinholeIntrinsic = DivisionModelIntrinsic<0>;

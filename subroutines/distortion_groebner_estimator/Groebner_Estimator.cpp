@@ -41,7 +41,7 @@ namespace estimators {
         Eigen::Matrix<double, 1, 1> distortion_coefficients;
         std::vector<double> errors(number_of_points_);
         distortion_coefficients(0) = distortion_coefficient;
-        utils::distortion_problem::computeErrors<utils::distortion_problem::EpipolarCurveDistanceError, double>(u1d_, u2d_, distortion_coefficients, fundamental_matrix, left_residuals_, right_residuals_);
+        utils::distortion_problem::computeErrors<utils::distortion_problem::EpipolarCurveDistanceError, double>(u1d_, u2d_, distortion_coefficients, fundamental_matrix, left_residuals_, right_residuals_, options_.image_radius);
         for (std::size_t k = 0; k < number_of_points_; ++k)
         {
             errors[k] = std::abs(left_residuals_[k]) + std::abs(right_residuals_[k]);

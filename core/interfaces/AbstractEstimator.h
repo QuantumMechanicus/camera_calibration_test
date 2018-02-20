@@ -7,20 +7,9 @@
 
 namespace estimators {
 
-    namespace internal
-    {
-        struct IEstimator
-        {
-            //virtual void estimate() = 0;
-
-            virtual bool isEstimated() const = 0;
-
-            virtual ~IEstimator() = default;
-        };
-    }
 
     template<typename TEstimatedParameters>
-    class AbstractEstimator : virtual public internal::IEstimator {
+    class AbstractEstimator {
     protected:
 
         virtual void estimateImpl() = 0;
@@ -35,11 +24,13 @@ namespace estimators {
 
         AbstractEstimator(AbstractEstimator &&rhs) noexcept = default;
 
-        ~AbstractEstimator() override = default;
+        virtual ~AbstractEstimator() = default;
 
         AbstractEstimator &operator=(AbstractEstimator &&rhs) noexcept = default;
 
         AbstractEstimator &operator=(const AbstractEstimator &rhs) = default;
+
+        virtual bool isEstimated() const = 0;
 
         void estimate() {
             estimateImpl();

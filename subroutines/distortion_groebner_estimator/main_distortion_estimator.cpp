@@ -70,13 +70,13 @@ int main(int argc, char *argv[]) {
     std::shared_ptr<intrinsics::StandardDivisionModelIntrinsic> intrinsics = std::make_shared<intrinsics::StandardDivisionModelIntrinsic>(
             w, h);
 
-    scene::Camera<intrinsics::StandardDivisionModelIntrinsic> left_camera(0, intrinsics);
-    scene::Camera<intrinsics::StandardDivisionModelIntrinsic> right_camera(1, intrinsics);
-    std::shared_ptr<std::map<int, scene::Camera<intrinsics::StandardDivisionModelIntrinsic> > > cameras = std::make_shared<std::map<int, scene::Camera<intrinsics::StandardDivisionModelIntrinsic> > >(
-            std::map<int, scene::Camera<intrinsics::StandardDivisionModelIntrinsic> >());
+    scene::Camera<intrinsics::StandardDivisionModelIntrinsic> left_camera("l0", intrinsics);
+    scene::Camera<intrinsics::StandardDivisionModelIntrinsic> right_camera("r1", intrinsics);
+    std::shared_ptr<std::map<std::string, scene::Camera<intrinsics::StandardDivisionModelIntrinsic> > > cameras = std::make_shared<std::map<std::string, scene::Camera<intrinsics::StandardDivisionModelIntrinsic> > >(
+            std::map<std::string, scene::Camera<intrinsics::StandardDivisionModelIntrinsic> >());
 
-    (*cameras)[0] = left_camera;
-    (*cameras)[1] = right_camera;
+    (*cameras)["l0"] = left_camera;
+    (*cameras)["r1"] = right_camera;
 
     scene::TwoView<intrinsics::DivisionModelIntrinsic<1>> stereo_pair(cameras, left_camera, right_camera, u1d, u2d);
     stereo_pair.normalizeLeftKeypoints();
@@ -91,6 +91,8 @@ int main(int argc, char *argv[]) {
     stereo_pair.estimateFundamentalMatrix(groebner_estimator);
     scene_serialization::SimpleSceneArchiver<scene_serialization::SimpleDivisionModelArchiver<>>
             archiver(f_estimated_fundamental_matrix, f_estimated_lambda, f_estimated_lambda, "", "",f_left_camera_info, f_right_camera_info);
+    //stereo_pair.denormalizeLeftKeypoints();
+    //stereo_pair.denormalizeRightKeypoints();
     stereo_pair.saveScene(archiver);
 
 

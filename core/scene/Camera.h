@@ -18,7 +18,7 @@ namespace scene {
      * @brief Class describing position (L = RW + t, where L denotes local coordinates system and W --- world coordinates system) and camera inner parameters
      * @tparam IntrinsicsModel Parametrization of camera intrinsics model (pinhole, fisheye, etc.)
      */
-    template<typename IntrinsicsModel, typename TLabel = int>
+    template<typename IntrinsicsModel, typename TLabel = std::string>
     class Camera : public ICamera<IntrinsicsModel>, public graph::INode<TLabel> {
         std::shared_ptr<IntrinsicsModel> intrinsics_;
         Sophus::SO3d world_rotation_;

@@ -10,6 +10,8 @@ namespace graph {
     template<typename TLabel = int>
     struct INode {
 
+        typedef TLabel TNodeLabel;
+
         INode<TLabel>() = default;
 
         INode<TLabel>(const INode<TLabel> &rhs) = default;

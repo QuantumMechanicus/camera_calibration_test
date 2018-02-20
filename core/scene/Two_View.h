@@ -44,9 +44,9 @@ namespace scene {
 
     typedef Eigen::Matrix3d FundamentalMatrix;
 
-    template<typename IntrinsicsModel, typename TLabel = int>
+    template<typename IntrinsicsModel, typename TLabel = std::string>
     class TwoView
-            : public graph::AbstractEdge<scene::Camera<IntrinsicsModel>, TLabel>, public ITwoView<IntrinsicsModel> {
+            : public graph::AbstractEdge<scene::Camera<IntrinsicsModel, TLabel>>, public ITwoView<IntrinsicsModel> {
 
         Eigen::Vector3d relativeTranslation_{};
         Sophus::SO3d relativeRotation_{};

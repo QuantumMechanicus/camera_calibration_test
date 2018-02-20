@@ -6,6 +6,7 @@
 #define CAMERA_CALIBRATION_ABSTRACTEDGE_H
 
 #include <memory>
+#include <map>
 #include "INode.h"
 
 namespace graph {
@@ -14,11 +15,17 @@ namespace graph {
     protected:
         typename TVertex::TNodeLabel start_vertex_label_;
         typename TVertex::TNodeLabel end_vertex_label_;
+
         std::shared_ptr<std::map<typename TVertex::TNodeLabel, TVertex>> ptr_to_list_of_vertices_{};
 
     public:
 
-        AbstractEdge() = default;
+        using VertexMap = std::map<typename TVertex::TNodeLabel, TVertex>;
+
+        AbstractEdge() : start_vertex_label_{}, end_vertex_label_{}
+        {
+                ptr_to_list_of_vertices_ = std::make_shared<VertexMap >(VertexMap());
+        }
 
         AbstractEdge(const AbstractEdge<TVertex, TWeight> &rhs) = default;
 
@@ -35,6 +42,10 @@ namespace graph {
         AbstractEdge &operator=(AbstractEdge<TVertex, TWeight> &&rhs) noexcept = default;
 
         AbstractEdge &operator=(const AbstractEdge<TVertex, TWeight> &rhs) = default;
+
+        const std::shared_ptr<std::map<typename TVertex::TNodeLabel, TVertex>> &getVertexListPointer() const {
+            return ptr_to_list_of_vertices_;
+        }
 
         const TVertex &getStartVertex() const {
             return ptr_to_list_of_vertices_->at(start_vertex_label_);

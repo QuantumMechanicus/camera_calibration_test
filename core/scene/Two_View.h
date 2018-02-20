@@ -72,85 +72,88 @@ namespace scene {
                 TLabel right_camera_label,
                 ImagePoints left_keypoints,
                 ImagePoints right_keypoints,
-                FundamentalMatrix bifocal_tensor) : graph::AbstractEdge<scene::Camera<IntrinsicsModel>>(
+                FundamentalMatrix bifocal_tensor = FundamentalMatrix::Zero(),
+                Sophus::SO3d relativeRotation = Sophus::SO3d(),
+                Eigen::Vector3d relativeTranslation = Eigen::Vector3d::Zero())
+                : graph::AbstractEdge<scene::Camera<IntrinsicsModel>>(
                 std::move(left_camera_label),
                 std::move(right_camera_label), cameras),
-                                                    left_keypoints_(std::move(left_keypoints)),
-                                                    right_keypoints_(std::move(right_keypoints)),
-                                                    bifocal_tensor_(std::move(bifocal_tensor)) {
+                  left_keypoints_(std::move(left_keypoints)),
+                  right_keypoints_(std::move(right_keypoints)),
+                  bifocal_tensor_(std::move(bifocal_tensor)),
+                  relativeRotation_(std::move(relativeRotation)),
+                  relativeTranslation_(std::move(relativeTranslation)) {
             number_of_points_ = TwoView::left_keypoints_.cols();
-            relativeRotation_ = Sophus::SO3d();
-            relativeTranslation_.setZero();
+
         }
 
-        TwoView(std::shared_ptr<MapLabelToCamera<TLabel, IntrinsicsModel>> cameras,
-                scene::Camera<IntrinsicsModel> left_camera,
-                scene::Camera<IntrinsicsModel> right_camera,
-                ImagePoints left_keypoints,
-                ImagePoints right_keypoints) : graph::AbstractEdge<scene::Camera<IntrinsicsModel>>(
-                left_camera.getLabel(), right_camera.getLabel(), cameras),
-                                               left_keypoints_(std::move(left_keypoints)),
-                                               right_keypoints_(std::move(right_keypoints)) {
-            bifocal_tensor_.setZero();
-            number_of_points_ = TwoView::left_keypoints_.cols();
-        }
 
-        void normalizeLeftKeypoints() {
+        bool normalizeLeftKeypoints() {
             //if (doesExist()) {
-            auto &left_camera_ = getStartVertex();//.lock();
+            auto &left_camera_ = getStartVertex();
             double w = left_camera_.getWidth();
             double h = left_camera_.getHeight();
-            double r = std::sqrt(w * w + h * h) / 2.0;
-            left_keypoints_.row(0) =
-                    (left_keypoints_.row(0) - (w / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose()) / r;
-            left_keypoints_.row(1) =
-                    (left_keypoints_.row(1) - (h / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose()) / r;
+            if (w > 0 && h > 0) {
+                double r = std::sqrt(w * w + h * h) / 2.0;
+                left_keypoints_.row(0) =
+                        (left_keypoints_.row(0) - (w / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose()) / r;
+                left_keypoints_.row(1) =
+                        (left_keypoints_.row(1) - (h / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose()) / r;
+                return true;
+            }
+            return false;
 
-
-            //}
         }
 
-        void normalizeRightKeypoints() {
+        bool normalizeRightKeypoints() {
             //if (doesExist()) {
-            auto &right_camera_ = getFinishVertex();//.lock();
+            auto &right_camera_ = getFinishVertex();
             double w = right_camera_.getWidth();
             double h = right_camera_.getHeight();
-            double r = std::sqrt(w * w + h * h) / 2.0;
-            right_keypoints_.row(0) =
-                    (right_keypoints_.row(0) - (w / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose()) /
-                    r;
-            right_keypoints_.row(1) =
-                    (right_keypoints_.row(1) - (h / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose()) /
-                    r;
-            // }
+            if (w > 0 && h > 0) {
+                double r = std::sqrt(w * w + h * h) / 2.0;
+                right_keypoints_.row(0) =
+                        (right_keypoints_.row(0) - (w / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose()) /
+                        r;
+                right_keypoints_.row(1) =
+                        (right_keypoints_.row(1) - (h / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose()) /
+                        r;
+                return true;
+            }
+            return false;
 
         }
 
-        void denormalizeLeftKeypoints() {
-            //if (doesExist()) {
-            auto &left_camera_ = getStartVertex();//.lock();
+        bool denormalizeLeftKeypoints() {
+
+            auto &left_camera_ = getStartVertex();
             double w = left_camera_.getWidth();
             double h = left_camera_.getHeight();
-            double r = std::sqrt(w * w + h * h) / 2.0;
-            left_keypoints_.row(0) =
-                    r * left_keypoints_.row(0) + (w / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose();
-            left_keypoints_.row(1) =
-                    r * left_keypoints_.row(1) + (h / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose();
-
-            //}
+            if (w > 0 && h > 0) {
+                double r = std::sqrt(w * w + h * h) / 2.0;
+                left_keypoints_.row(0) =
+                        r * left_keypoints_.row(0) + (w / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose();
+                left_keypoints_.row(1) =
+                        r * left_keypoints_.row(1) + (h / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose();
+                return true;
+            }
+            return false;
         }
 
-        void denormalizeRightKeypoints() {
-            //if (doesExist()) {
-            auto &right_camera_ = getFinishVertex();//.lock();
+        bool denormalizeRightKeypoints() {
+
+            auto &right_camera_ = getFinishVertex();
             double w = right_camera_.getWidth();
             double h = right_camera_.getHeight();
-            double r = std::sqrt(w * w + h * h) / 2.0;
-            right_keypoints_.row(0) =
-                    r * right_keypoints_.row(0) + (w / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose();
-            right_keypoints_.row(1) =
-                    r * right_keypoints_.row(1) + (h / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose();
-            //}
+            if (w > 0 && h > 0) {
+                double r = std::sqrt(w * w + h * h) / 2.0;
+                right_keypoints_.row(0) =
+                        r * right_keypoints_.row(0) + (w / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose();
+                right_keypoints_.row(1) =
+                        r * right_keypoints_.row(1) + (h / 2.0) * Eigen::VectorXd::Ones(number_of_points_).transpose();
+                return true;
+            }
+            return false;
         }
 
 

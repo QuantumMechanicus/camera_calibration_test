@@ -26,6 +26,10 @@ namespace scene {
         TLabel label_;
 
     public:
+
+        typedef IntrinsicsModel Model;
+        typedef TLabel Label;
+
         /**
          * @brief Constructor
          */
@@ -95,12 +99,24 @@ namespace scene {
             intrinsics_->estimateParameters(estimator);
         }
 
-        void estimatedExtrinsicsRotation(estimators::AbstractEstimator<Sophus::SO3d> &estimator) override {
+        void estimateExtrinsicsRotation(estimators::AbstractEstimator<Sophus::SO3d> &estimator) override {
             world_rotation_ = estimator.getEstimation();
         }
 
-        void estimatedExtrinsicsTranslation(estimators::AbstractEstimator<Eigen::Vector3d> &estimator) override {
+        void estimateExtrinsicsTranslation(estimators::AbstractEstimator<Eigen::Vector3d> &estimator) override {
             world_translation_ = estimator.getEstimation();
+        }
+
+        void estimateIntrinsics(const IntrinsicsModel &simple_estimation) override {
+            intrinsics_->estimateParametes(simple_estimation);
+        }
+
+        void estimateExtrinsicsRotation(const Sophus::SO3d &simple_estimation) override {
+            world_rotation_ = simple_estimation;
+        }
+
+        void estimateExtrinsicsTranslation(const Eigen::Vector3d &simple_estimation) override {
+            world_translation_ = simple_estimation;
         }
 
         /*void estimatedExtrinsicsMotion(estimators::AbstractEstimator<Sophus::SE3d> &estimator) override {

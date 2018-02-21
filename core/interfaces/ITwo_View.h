@@ -6,13 +6,18 @@
 #define CAMERA_CALIBRATION_ITWO_VIEW_H
 
 #include "Eigen/Dense"
+#include "ICamera.h"
 #include "Abstract_Estimator.h"
 
-template<typename Intrinsics>
-class ITwoView {
-public:
-    virtual void estimateFundamentalMatrix(estimators::AbstractEstimator<Eigen::Matrix3d> &estimator) = 0;
-};
+namespace scene {
+    template<typename Intrinsics>
+    class ITwoView {
+    public:
+        virtual void estimateFundamentalMatrix(estimators::AbstractEstimator<Eigen::Matrix3d> &estimator) = 0;
+
+        virtual void estimateFundamentalMatrix(const Eigen::Matrix3d &simple_estimation) = 0;
+    };
+}
 
 
 #endif //CAMERA_CALIBRATION_ITWO_VIEW_H

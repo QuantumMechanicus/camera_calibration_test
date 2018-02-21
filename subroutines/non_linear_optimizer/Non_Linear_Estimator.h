@@ -6,18 +6,23 @@
 #define CAMERA_CALIBRATION_NON_LINEAR_ESTIMATOR_H
 
 #include "Core.h"
+#include <functional>
 
 namespace non_linear_optimization {
 
-    class ErrorFunctor {
+    /*template<typename TCostFunctor>
+    class DivisionDistortionAndFundamentalMatrixOptimizerFunctor {
         Eigen::Vector3d left_point_, right_point_;
         int number_of_distortion_coefficients_;
         double image_radius_;
+
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
-        ErrorFunctor(const Eigen::Vector3d &left_point, const Eigen::Vector3d &right_point,
-                     int number_of_distortion_coefficients, double image_radius=1);
+        DivisionDistortionAndFundamentalMatrixOptimizerFunctor(const Eigen::Vector3d &left_point,
+                                                               const Eigen::Vector3d &right_point,
+                                                               int number_of_distortion_coefficients,
+                                                               double image_radius = 1);
 
 
         template<typename T>
@@ -59,21 +64,21 @@ namespace non_linear_optimization {
 
 
             std::pair<T, T> res;
-            bool is_correct = utils::distortion_problem::EpipolarCurveDistanceError<T>()(left_point_T,
-                                                                                         right_point_T,
-                                                                                         F,
-                                                                                         lambdas,
-                                                                                         res.first,
-                                                                                         res.second);
+            bool is_correct = TCostFunctor<T>()(left_point_T,
+                                                right_point_T,
+                                                F,
+                                                lambdas,
+                                                res.first,
+                                                res.second);
 
 
-            residuals[0] = image_radius_*res.first;
-            residuals[1] = image_radius_*res.second;
+            residuals[0] = image_radius_ * res.first;
+            residuals[1] = image_radius_ * res.second;
             return is_correct;
         }
     };
 
-    class SimpleFundamentalMatrixEstimator : public estimators::internal::FundamentalMatrixEstimator {
+    /*class SimpleFundamentalMatrixEstimator : public estimators::internal::FundamentalMatrixEstimator {
         bool estimated_;
 
 
@@ -121,7 +126,7 @@ namespace non_linear_optimization {
         void estimate() override;
 
         bool isEstimated() const override;
-    };
+    };*/
 }
 
 #endif //CAMERA_CALIBRATION_NON_LINEAR_ESTIMATOR_H

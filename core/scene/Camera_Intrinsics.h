@@ -47,6 +47,8 @@ namespace intrinsics {
         */
         virtual void estimateParameters(estimators::AbstractEstimator<Derived> &estimator) = 0;
 
+        virtual void estimateParametes(Derived &simple_estimator) = 0;
+
 
         /**
          * @brief Getter for width of the image

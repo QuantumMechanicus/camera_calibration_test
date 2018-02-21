@@ -100,7 +100,7 @@ namespace scene_serialization {
             return files_.parse(info_file);
         }
 
-        virtual void serialize(const scene::TwoView<typename CameraArchiver::TModel> &stereo_pair) const {
+        virtual void serialize(const scene::TwoView<typename CameraArchiver::Model> &stereo_pair) const {
 
 
             utils::saveMatrix(files_.fundamental_matrix_file_name_, stereo_pair.getFundamentalMatrix(), overwrites_[0]);
@@ -127,7 +127,7 @@ namespace scene_serialization {
             archiver.serialize(stereo_pair.getFinishVertex());
         }
 
-        virtual void deserialize(scene::TwoView<typename CameraArchiver::TModel> &stereo_pair) const {
+        virtual void deserialize(scene::TwoView<typename CameraArchiver::Model> &stereo_pair) const {
             auto ptr_to_list_of_vertices = stereo_pair.getVertexListPointer();
 
             Eigen::Matrix3d fundamental_matrix;
@@ -142,7 +142,7 @@ namespace scene_serialization {
             if (!relative_motion_matrix.isZero())
                 relative_motion = Sophus::SE3d::fitToSE3(relative_motion_matrix);
 
-            typename CameraArchiver::TCamera left_camera, right_camera;
+            typename CameraArchiver::Camera left_camera, right_camera;
 
             CameraArchiver archiver;
 
@@ -155,7 +155,7 @@ namespace scene_serialization {
                                       files_.right_extrinsics_parameters_file_name_);
             archiver.deserialize(right_camera);
             if (files_.left_intrinsics_parameters_file_name_ == files_.right_intrinsics_parameters_file_name_) {
-                right_camera = typename CameraArchiver::TCamera(right_camera.getLabel(),
+                right_camera = typename CameraArchiver::Camera(right_camera.getLabel(),
                                                                 left_camera.getIntrinsicsPointer(),
                                                                 right_camera.getRotation(),
                                                                 right_camera.getTranslation());
@@ -166,7 +166,7 @@ namespace scene_serialization {
             (*ptr_to_list_of_vertices)[left_camera.getLabel()] = left_camera;
             (*ptr_to_list_of_vertices)[right_camera.getLabel()] = right_camera;
 
-            stereo_pair = scene::TwoView<typename CameraArchiver::TModel, typename CameraArchiver::TLabel>(
+            stereo_pair = scene::TwoView<typename CameraArchiver::Model, typename CameraArchiver::Label>(
                     ptr_to_list_of_vertices,
                     left_camera.getLabel(),
                     right_camera.getLabel(), left_points,
@@ -185,9 +185,9 @@ namespace scene_serialization {
         bool overwrite_info_;
 
     public:
-        typedef scene::Camera<intrinsics::DivisionModelIntrinsic<N>, TInfo> TCamera;
-        typedef intrinsics::DivisionModelIntrinsic<N> TModel;
-        typedef TInfo TLabel;
+        typedef scene::Camera<intrinsics::DivisionModelIntrinsic<N>, TInfo> Camera;
+        typedef intrinsics::DivisionModelIntrinsic<N> Model;
+        typedef TInfo Label;
 
 
         explicit SimpleDivisionModelArchiver(std::string camera_info_file_name = "",

@@ -12,37 +12,8 @@
 
 namespace scene {
 
-    template<typename T>
-    using StdVector = std::vector<T, Eigen::aligned_allocator<T>>;
-
-    template<typename T>
-    using TImagePoint = Eigen::Matrix<T, 2, 1>;
-
-    template<typename T>
-    using TImagePoints = Eigen::Matrix<T, 2, Eigen::Dynamic>;
-
-    template<typename T>
-    using THomogenousImagePoint = Eigen::Matrix<T, 3, 1>;
-
-    template<typename T>
-    using THomogenousImagePoints = Eigen::Matrix<T, 3, Eigen::Dynamic>;
-
-    template<typename T>
-    using TFundamentalMatrix = Eigen::Matrix<T, 3, 3>;
-
     template<typename TLabel, typename IntrinsicsModel>
     using MapLabelToCamera = std::map<TLabel, scene::Camera<IntrinsicsModel>>;
-
-
-    typedef Eigen::Matrix<double, 2, 1> ImagePoint;
-
-    typedef Eigen::Matrix<double, 3, 1> HomogenousImagePoint;
-
-    typedef Eigen::Matrix<double, 2, Eigen::Dynamic> ImagePoints;
-
-    typedef Eigen::Matrix<double, 3, Eigen::Dynamic> HomogenousImagePoints;
-
-    typedef Eigen::Matrix3d FundamentalMatrix;
 
     template<typename IntrinsicsModel, typename TLabel = std::string>
     class TwoView
@@ -64,11 +35,11 @@ namespace scene {
         using graph::AbstractEdge<scene::Camera<IntrinsicsModel>>::ptr_to_list_of_vertices_;
         using graph::AbstractEdge<scene::Camera<IntrinsicsModel>>::getStartVertex;
         using graph::AbstractEdge<scene::Camera<IntrinsicsModel>>::getFinishVertex;
-
+        using VertexMap = typename graph::AbstractEdge<scene::Camera<IntrinsicsModel>>::VertexMap ;
 
         TwoView() = default;
 
-        TwoView(std::shared_ptr<MapLabelToCamera<TLabel, IntrinsicsModel>> cameras, TLabel left_camera_label,
+        TwoView(std::shared_ptr<VertexMap> cameras, TLabel left_camera_label,
                 TLabel right_camera_label,
                 ImagePoints left_keypoints,
                 ImagePoints right_keypoints,
@@ -173,6 +144,10 @@ namespace scene {
 
         void estimateFundamentalMatrix(estimators::AbstractEstimator<FundamentalMatrix> &estimator) override {
             bifocal_tensor_ = estimator.getEstimation();
+        }
+
+        void estimateFundamentalMatrix(const Eigen::Matrix3d &simple_estimation) override {
+            bifocal_tensor_ = simple_estimation;
         }
 
         template<typename SceneArchiver>

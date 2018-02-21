@@ -10,7 +10,7 @@ namespace graph {
     template<typename TLabel = int>
     struct INode {
 
-        typedef TLabel TNodeLabel;
+        typedef TLabel NodeLabel;
 
         virtual ~INode<TLabel>() = default;
 

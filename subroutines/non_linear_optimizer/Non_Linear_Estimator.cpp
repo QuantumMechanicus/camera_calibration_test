@@ -8,7 +8,7 @@
 #include "../distortion_groebner_estimator/Groebner_Estimator.h"
 
 namespace non_linear_optimization {
-    void NonLinearEstimator::estimate() {
+    /*void NonLinearEstimator::estimate() {
         if (!estimated_) {
             estimated_ = true;
             int residuals = 0;
@@ -53,12 +53,12 @@ namespace non_linear_optimization {
                         right.template block<2, 1>(0, 0) = i2d.col(k);
                         left[2] = right[2] = 1.0;
 
-                        auto fun = new ceres::DynamicAutoDiffCostFunction<ErrorFunctor, 10>(
-                                new ErrorFunctor(left, right, number_of_distortion_coefficients, options_.image_radius_));
+                        auto fun = new ceres::DynamicAutoDiffCostFunction<DivisionDistortionAndFundamentalMatrixOptimizerFunctor, 10>(
+                                new DivisionDistortionAndFundamentalMatrixOptimizerFunctor(left, right, number_of_distortion_coefficients, options_.image_radius_));
                         fun->AddParameterBlock(static_cast<int>(number_of_distortion_coefficients));
                         fun->AddParameterBlock(8);
                         fun->SetNumResiduals(2);
-                        problem.AddResidualBlock(fun, /*new ceres::HuberLoss(15) */nullptr, lambda_ptr, f_ptr);
+                        problem.AddResidualBlock(fun, nullptr, lambda_ptr, f_ptr);
 
                         ++residuals;
                     }
@@ -147,8 +147,9 @@ namespace non_linear_optimization {
             quantile_to_minimize_(quantile_to_minimize),
             image_radius_(image_radius) {}
 
-    ErrorFunctor::ErrorFunctor(const Eigen::Vector3d &left_point, const Eigen::Vector3d &right_point,
+    DivisionDistortionAndFundamentalMatrixOptimizerFunctor::DivisionDistortionAndFundamentalMatrixOptimizerFunctor(const Eigen::Vector3d &left_point, const Eigen::Vector3d &right_point,
                                int number_of_distortion_coefficients, double image_radius)
             : left_point_(left_point),
               right_point_(right_point), number_of_distortion_coefficients_(number_of_distortion_coefficients), image_radius_(image_radius) {}
+    */
 }

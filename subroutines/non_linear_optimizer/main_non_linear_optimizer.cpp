@@ -6,7 +6,7 @@
 
 int main(int argc, char *argv[]) {
 
-    unsigned int w, h;
+    /*unsigned int w, h;
     std::vector<std::string> input1, input2, f_estimated_fundamental_matrices, f_estimated_intrinsics;
     int non_linear_iter, number_of_distortion_coefficients;
     double percent_of_inliers;
@@ -49,12 +49,13 @@ int main(int argc, char *argv[]) {
     } catch (std::exception &e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return -2;
-    }
-
+    }*/
+    scene::Scene<scene::Camera<intrinsics::StandardDivisionModelIntrinsic>> a;
+    //a.f["0"] = scene::Camera<intrinsics::StandardDivisionModelIntrinsic>();
     /*assert(input1.size() == input2.size() && "number of left and right cameras should be equal");
     assert(f_estimated_fundamental_matrices.size() == input1.size() &&
            "number of cameras and fundamental matrices should be equal");*/
-    long number_of_pairs = f_estimated_fundamental_matrices.size();
+    /*long number_of_pairs = f_estimated_fundamental_matrices.size();
 
 
     std::vector<scene::TwoView<intrinsics::DivisionModelIntrinsic<Eigen::Dynamic>>> stereo_pairs(number_of_pairs);

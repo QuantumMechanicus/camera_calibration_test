@@ -2,8 +2,8 @@
 // Created by danielbord on 2/19/18.
 //
 
-#ifndef CAMERA_CALIBRATION_ABSTRACTESTIMATOR_H
-#define CAMERA_CALIBRATION_ABSTRACTESTIMATOR_H
+#ifndef CAMERA_CALIBRATION_ABSTRACT_ESTIMATOR_H
+#define CAMERA_CALIBRATION_ABSTRACT_ESTIMATOR_H
 
 namespace estimators {
 
@@ -18,17 +18,7 @@ namespace estimators {
 
     public:
 
-        AbstractEstimator() = default;
-
-        AbstractEstimator(const AbstractEstimator &rhs) = default;
-
-        AbstractEstimator(AbstractEstimator &&rhs) noexcept = default;
-
         virtual ~AbstractEstimator() = default;
-
-        AbstractEstimator &operator=(AbstractEstimator &&rhs) noexcept = default;
-
-        AbstractEstimator &operator=(const AbstractEstimator &rhs) = default;
 
         virtual bool isEstimated() const = 0;
 
@@ -46,4 +36,4 @@ namespace estimators {
     };
 }
 
-#endif //CAMERA_CALIBRATION_ABSTRACTESTIMATOR_H
+#endif //CAMERA_CALIBRATION_ABSTRACT_ESTIMATOR_H

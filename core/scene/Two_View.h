@@ -7,8 +7,8 @@
 
 #include <utility>
 #include "Camera.h"
-#include "../interfaces/ITwoView.h"
-#include "../interfaces/AbstractEdge.h"
+#include "../interfaces/ITwo_View.h"
+#include "../interfaces/Abstract_Edge.h"
 
 namespace scene {
 
@@ -58,7 +58,7 @@ namespace scene {
 
     public:
 
-        //using graph::AbstractEdge<scene::Camera<IntrinsicsModel>>::doesExist;
+
         using graph::AbstractEdge<scene::Camera<IntrinsicsModel>>::start_vertex_label_;
         using graph::AbstractEdge<scene::Camera<IntrinsicsModel>>::end_vertex_label_;
         using graph::AbstractEdge<scene::Camera<IntrinsicsModel>>::ptr_to_list_of_vertices_;

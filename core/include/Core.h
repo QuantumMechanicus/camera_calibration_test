@@ -8,6 +8,7 @@
 #include "../utils/Utilities.h"
 #include "../utils/Scene_IO.h"
 #include "../scene/Camera_Intrinsics.h"
-#include "../scene/Two_View.h"
+#include "../scene/Scene.h"
+
 
 #endif //CAMERA_CALIBRATION_CORE_H

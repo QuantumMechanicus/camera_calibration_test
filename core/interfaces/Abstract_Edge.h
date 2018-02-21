@@ -2,8 +2,8 @@
 // Created by danielbord on 2/19/18.
 //
 
-#ifndef CAMERA_CALIBRATION_ABSTRACTEDGE_H
-#define CAMERA_CALIBRATION_ABSTRACTEDGE_H
+#ifndef CAMERA_CALIBRATION_ABSTRACT_EDGE_H
+#define CAMERA_CALIBRATION_ABSTRACT_EDGE_H
 
 #include <memory>
 #include <map>
@@ -27,10 +27,6 @@ namespace graph {
                 ptr_to_list_of_vertices_ = std::make_shared<VertexMap >(VertexMap());
         }
 
-        AbstractEdge(const AbstractEdge<TVertex, TWeight> &rhs) = default;
-
-        AbstractEdge(AbstractEdge<TVertex, TWeight> &&rhs) noexcept = default;
-
         AbstractEdge(typename TVertex::TNodeLabel st_vertex, typename TVertex::TNodeLabel end_vertex,
                      std::shared_ptr<std::map<typename TVertex::TNodeLabel, TVertex>> ptr_to_list_of_vertices) :
                 ptr_to_list_of_vertices_(std::move(ptr_to_list_of_vertices)),
@@ -38,10 +34,6 @@ namespace graph {
                 end_vertex_label_(std::move(end_vertex)){}
 
         virtual ~AbstractEdge() = default;
-
-        AbstractEdge &operator=(AbstractEdge<TVertex, TWeight> &&rhs) noexcept = default;
-
-        AbstractEdge &operator=(const AbstractEdge<TVertex, TWeight> &rhs) = default;
 
         const std::shared_ptr<std::map<typename TVertex::TNodeLabel, TVertex>> &getVertexListPointer() const {
             return ptr_to_list_of_vertices_;
@@ -61,4 +53,4 @@ namespace graph {
 }
 
 
-#endif //CAMERA_CALIBRATION_ABSTRACTEDGE_H
+#endif //CAMERA_CALIBRATION_ABSTRACT_EDGE_H

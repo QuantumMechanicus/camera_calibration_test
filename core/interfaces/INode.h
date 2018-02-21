@@ -12,17 +12,7 @@ namespace graph {
 
         typedef TLabel TNodeLabel;
 
-        INode<TLabel>() = default;
-
-        INode<TLabel>(const INode<TLabel> &rhs) = default;
-
-        INode<TLabel>(INode<TLabel> &&rhs) noexcept = default;
-
         virtual ~INode<TLabel>() = default;
-
-        INode<TLabel> &operator=(INode<TLabel> &&rhs) noexcept = default;
-
-        INode<TLabel> &operator=(const INode<TLabel> &rhs) = default;
 
         virtual TLabel getLabel() const = 0;
 

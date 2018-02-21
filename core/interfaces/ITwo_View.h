@@ -2,11 +2,11 @@
 // Created by danielbord on 2/19/18.
 //
 
-#ifndef CAMERA_CALIBRATION_ITWOVIEW_H
-#define CAMERA_CALIBRATION_ITWOVIEW_H
+#ifndef CAMERA_CALIBRATION_ITWO_VIEW_H
+#define CAMERA_CALIBRATION_ITWO_VIEW_H
 
 #include "Eigen/Dense"
-#include "AbstractEstimator.h"
+#include "Abstract_Estimator.h"
 
 template<typename Intrinsics>
 class ITwoView {
@@ -15,4 +15,4 @@ public:
 };
 
 
-#endif //CAMERA_CALIBRATION_ITWOVIEW_H
+#endif //CAMERA_CALIBRATION_ITWO_VIEW_H

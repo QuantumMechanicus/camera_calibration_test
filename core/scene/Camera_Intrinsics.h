@@ -6,7 +6,7 @@
 #define CAMERA_CALIBRATION_CAMERA_INTRINSICS_H
 
 #include <Eigen/Dense>
-#include "../interfaces/AbstractEstimator.h"
+#include "../interfaces/Abstract_Estimator.h"
 
 
 namespace intrinsics {
@@ -14,8 +14,8 @@ namespace intrinsics {
 /**
  * @brief Base class to store intrinsic parameters of camera (e. g. width, height, focal length)
  */
-    template <typename Derived>
-    class IntrinsicsBase {
+    template<typename Derived>
+    class AbstractIntrinsics {
 
     protected:
         unsigned int w_;
@@ -26,7 +26,7 @@ namespace intrinsics {
          * @param other Instance of intrinsics
          * @return True if type of other and this the same and their fields are equal
          */
-        virtual bool isEqualImpl(const IntrinsicsBase<Derived> &other) const = 0;
+        virtual bool isEqualImpl(const AbstractIntrinsics<Derived> &other) const = 0;
 
     public:
         /**
@@ -34,12 +34,12 @@ namespace intrinsics {
          * @param w Width of the image
          * @param h Height of the image
          */
-        explicit IntrinsicsBase(unsigned int w = 0, unsigned int h = 0) : w_(w), h_(h) {};
+        explicit AbstractIntrinsics(unsigned int w = 0, unsigned int h = 0) : w_(w), h_(h) {};
 
         /**
         * @brief Destructor
         */
-        virtual ~IntrinsicsBase() = default;
+        virtual ~AbstractIntrinsics() = default;
 
         /**
         * @brief Method for identifying unknown parameters of model
@@ -52,8 +52,7 @@ namespace intrinsics {
          * @brief Getter for width of the image
          * @return width of the image
          */
-        unsigned int getWidth() const
-        {
+        unsigned int getWidth() const {
             return w_;
         }
 
@@ -61,8 +60,7 @@ namespace intrinsics {
          * @brief Getter for height of the image
          * @return height of the image
          */
-        unsigned int getHeight() const
-        {
+        unsigned int getHeight() const {
             return h_;
         }
 
@@ -71,8 +69,7 @@ namespace intrinsics {
         * @param other Instance of intrinsics
         * @return True if type of other and this the same and their fields are equal
         */
-        bool operator==(const IntrinsicsBase<Derived>& other) const
-        {
+        bool operator==(const AbstractIntrinsics<Derived> &other) const {
             return isEqualImpl(other);
         }
 
@@ -83,7 +80,7 @@ namespace intrinsics {
  * \f$ x_u = \frac{x_d}{1 + \lambda_1 ||x_d||^2 + ... \lambda_N ||x_d||^{2N}} \f$
  */
     template<int N = 1>
-    class DivisionModelIntrinsic : public IntrinsicsBase<DivisionModelIntrinsic<N>> {
+    class DivisionModelIntrinsic : public AbstractIntrinsics<DivisionModelIntrinsic<N>> {
         double ppx_{};
         double ppy_{};
         double f_{};
@@ -92,7 +89,7 @@ namespace intrinsics {
         /**
          * @brief See definition above
          */
-        bool isEqualImpl(const IntrinsicsBase<DivisionModelIntrinsic<N>> &other) const override {
+        bool isEqualImpl(const AbstractIntrinsics<DivisionModelIntrinsic<N>> &other) const override {
             const auto *other_casted = dynamic_cast<const DivisionModelIntrinsic<N> *>(&other);
             return other_casted != nullptr && ppx_ == other_casted->getPrincipalPointX() &&
                    ppy_ == other_casted->getPrincipalPointY() &&
@@ -113,10 +110,11 @@ namespace intrinsics {
          * @param f Focal length
          * @param lambdas Parameters of division model
          */
-        explicit DivisionModelIntrinsic(const Eigen::Matrix<double, N, 1> &lambdas, unsigned int w = 0, unsigned int h = 0,
+        explicit DivisionModelIntrinsic(const Eigen::Matrix<double, N, 1> &lambdas, unsigned int w = 0,
+                                        unsigned int h = 0,
                                         double f = 0, double ppx = 0,
                                         double ppy = 0)
-                : IntrinsicsBase<DivisionModelIntrinsic>(w,h), ppx_(ppx),
+                : AbstractIntrinsics<DivisionModelIntrinsic>(w, h), ppx_(ppx),
                   ppy_(ppy),
                   f_(f),
                   lambdas_(lambdas) {}
@@ -129,10 +127,11 @@ namespace intrinsics {
          * @param lambdas Parameters of division model
          * @param n Number of distortion coefficients (lambdas)
          */
-        explicit DivisionModelIntrinsic(unsigned int n, const Eigen::Matrix<double, N, 1> &lambdas, unsigned int w = 0, unsigned int h = 0,
+        DivisionModelIntrinsic(unsigned int n, const Eigen::Matrix<double, N, 1> &lambdas, unsigned int w = 0,
+                               unsigned int h = 0,
                                double f = 0, double ppx = 0,
                                double ppy = 0)
-                : IntrinsicsBase<DivisionModelIntrinsic>(w,h), ppx_(ppx),
+                : AbstractIntrinsics<DivisionModelIntrinsic>(w, h), ppx_(ppx),
                   ppy_(ppy),
                   f_(f),
                   lambdas_(lambdas) {}
@@ -144,8 +143,8 @@ namespace intrinsics {
          * @param f Focal length
          */
         DivisionModelIntrinsic(unsigned int w, unsigned int h, double f = 0, double ppx = 0,
-                                        double ppy = 0) : IntrinsicsBase<DivisionModelIntrinsic>(w, h), ppx_(ppx), ppy_(ppy),
-                                                          f_(f) {
+                               double ppy = 0) : AbstractIntrinsics<DivisionModelIntrinsic>(w, h), ppx_(ppx), ppy_(ppy),
+                                                 f_(f) {
             assert(N != Eigen::Dynamic && "You should pass number of parameters for dynamic model");
             lambdas_.setZero();
         }
@@ -158,8 +157,8 @@ namespace intrinsics {
          * @param n Number of distortion coefficients (lambdas)
          */
         DivisionModelIntrinsic(unsigned int n, unsigned int w, unsigned int h, double f = 0, double ppx = 0,
-                                        double ppy = 0) : IntrinsicsBase<DivisionModelIntrinsic>(w, h), ppx_(ppx), ppy_(ppy),
-                                                          f_(f) {
+                               double ppy = 0) : AbstractIntrinsics<DivisionModelIntrinsic>(w, h), ppx_(ppx), ppy_(ppy),
+                                                 f_(f) {
             lambdas_.resize(n, Eigen::NoChange);
             lambdas_.setZero();
         }
@@ -171,8 +170,8 @@ namespace intrinsics {
 
         void estimateParameters(estimators::AbstractEstimator<DivisionModelIntrinsic<N>> &estimator) override {
             auto res = estimator.getEstimation();
-            ppx_= res.getPrincipalPointX();
-            ppy_= res.getPrincipalPointY();
+            ppx_ = res.getPrincipalPointX();
+            ppy_ = res.getPrincipalPointY();
             f_ = res.getFocalLength();
             lambdas_ = res.getDistortionCoefficients();
         }
@@ -212,21 +211,19 @@ namespace intrinsics {
             return lambdas_;
         }
 
-        int getNumberOfCofficients() const
-        {
+        int getNumberOfCofficients() const {
             return static_cast<int>(lambdas_.rows());
         }
 
         /**
          * @param new_size
          */
-        void resizeDistortionCoefficients(long new_size)
-        {
+        void resizeDistortionCoefficients(long new_size) {
             assert(N == Eigen::Dynamic && "You can't delete or add coefficients on static model");
             long old_size = lambdas_.rows();
             lambdas_.conservativeResize(new_size, Eigen::NoChange);
             if (new_size > old_size)
-                lambdas_.bottomRows(new_size-old_size).setZero();
+                lambdas_.bottomRows(new_size - old_size).setZero();
         }
     };
 

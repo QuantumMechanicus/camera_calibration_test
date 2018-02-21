@@ -7,22 +7,12 @@
 
 #include "Sophus/sophus/so3.hpp"
 #include "Sophus/sophus/se3.hpp"
-#include "AbstractEstimator.h"
+#include "Abstract_Estimator.h"
 
 template<typename Intrinsics>
 struct ICamera {
 
-    ICamera() = default;
-
-    ICamera(const ICamera &rhs) = default;
-
-    ICamera(ICamera &&rhs) noexcept = default;
-
     virtual ~ICamera() = default;
-
-    ICamera &operator=(ICamera &&rhs) noexcept = default;
-
-    ICamera &operator=(const ICamera &rhs) = default;
 
     virtual void estimateIntrinsics(estimators::AbstractEstimator<Intrinsics> &estimator) = 0;
 

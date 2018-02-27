@@ -7,14 +7,17 @@
 
 namespace graph {
 
-    template<typename TLabel = int>
+    template<typename TDerived, typename TLabel = int>
     struct INode {
 
         typedef TLabel NodeLabel;
 
-        virtual ~INode<TLabel>() = default;
+        TLabel getLabel() const
+        {
+            static_cast<const TDerived*>(this)->getLabelImpl();
+        }
 
-        virtual TLabel getLabel() const = 0;
+        using NodeLabel_t = TLabel;
 
     };
 

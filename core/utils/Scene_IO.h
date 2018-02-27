@@ -8,6 +8,7 @@
 #include <utility>
 #include <regex>
 #include <fstream>
+#include <random>
 #include <boost/algorithm/string.hpp>
 #include "../scene/Two_View.h"
 #include "Utilities.h"

@@ -5,7 +5,7 @@
 #ifndef CAMERA_CALIBRATION_ESTIMATOR_H
 #define CAMERA_CALIBRATION_ESTIMATOR_H
 
-#include <Eigen/Dense>
+/*#include <Eigen/Dense>
 #include <vector>
 
 namespace estimators {
@@ -85,5 +85,5 @@ namespace estimators {
     }
 
 
-}
+}*/
 #endif //CAMERA_CALIBRATION_ESTIMATOR_H

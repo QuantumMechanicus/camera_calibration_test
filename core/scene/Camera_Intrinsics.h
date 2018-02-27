@@ -14,19 +14,13 @@ namespace intrinsics {
 /**
  * @brief Base class to store intrinsic parameters of camera (e. g. width, height, focal length)
  */
-    template<typename Derived>
+    template<typename TDerived>
     class AbstractIntrinsics {
 
     protected:
         unsigned int w_;
         unsigned int h_;
 
-        /**
-         * @brief Equality operator
-         * @param other Instance of intrinsics
-         * @return True if type of other and this the same and their fields are equal
-         */
-        virtual bool isEqualImpl(const AbstractIntrinsics<Derived> &other) const = 0;
 
     public:
         /**
@@ -36,18 +30,16 @@ namespace intrinsics {
          */
         explicit AbstractIntrinsics(unsigned int w = 0, unsigned int h = 0) : w_(w), h_(h) {};
 
-        /**
-        * @brief Destructor
-        */
-        virtual ~AbstractIntrinsics() = default;
 
         /**
         * @brief Method for identifying unknown parameters of model
         * @param estimator Class with 'estimate' method
         */
-        virtual void estimateParameters(estimators::AbstractEstimator<Derived> &estimator) = 0;
-
-        virtual void estimateParametes(Derived &simple_estimator) = 0;
+        //TODO change
+        template<typename TEstimator>
+        void estimateParameter(TEstimator &estimator) {
+            static_cast<TDerived *>(this)->estimateParameterImpl(estimator);
+        }
 
 
         /**
@@ -71,8 +63,9 @@ namespace intrinsics {
         * @param other Instance of intrinsics
         * @return True if type of other and this the same and their fields are equal
         */
-        bool operator==(const AbstractIntrinsics<Derived> &other) const {
-            return isEqualImpl(other);
+        bool operator==(const AbstractIntrinsics<TDerived> &other) const {
+
+            return static_cast<TDerived *>(this)->isEqualImpl(other);
         }
 
     };
@@ -88,15 +81,38 @@ namespace intrinsics {
         double f_{};
         Eigen::Matrix<double, N, 1> lambdas_;
 
+        friend class AbstractIntrinsics<DivisionModelIntrinsic<N>>;
+
+    protected:
         /**
          * @brief See definition above
          */
-        bool isEqualImpl(const AbstractIntrinsics<DivisionModelIntrinsic<N>> &other) const override {
+        bool isEqualImpl(const AbstractIntrinsics<DivisionModelIntrinsic<N>> &other) const {
             const auto *other_casted = dynamic_cast<const DivisionModelIntrinsic<N> *>(&other);
             return other_casted != nullptr && ppx_ == other_casted->getPrincipalPointX() &&
                    ppy_ == other_casted->getPrincipalPointY() &&
                    f_ == other_casted->getFocalLength() &&
                    lambdas_ == other_casted->getDistortionCoefficients();
+        }
+
+        /**
+       * @brief See base definition above
+       * @param Class with 'estimate' principal point, focal length and distortion coefficients
+       */
+
+        void estimateParameterImpl(estimators::AbstractEstimator<DivisionModelIntrinsic<N>> &estimator) {
+
+            *this = std::move(estimator.getEstimation());
+        }
+
+        void estimateParameterImpl(DivisionModelIntrinsic<N> estimator) {
+
+            *this = std::move(estimator);
+        }
+
+        void estimateParameterImpl(estimators::AbstractEstimator<Eigen::Matrix<double,1,N>> &estimator) {
+
+            lambdas_= std::move(estimator.getEstimation());
         }
 
     public:
@@ -129,10 +145,10 @@ namespace intrinsics {
          * @param lambdas Parameters of division model
          * @param n Number of distortion coefficients (lambdas)
          */
-        DivisionModelIntrinsic(unsigned int n, const Eigen::Matrix<double, N, 1> &lambdas, unsigned int w = 0,
-                               unsigned int h = 0,
-                               double f = 0, double ppx = 0,
-                               double ppy = 0)
+        explicit DivisionModelIntrinsic(unsigned int n, const Eigen::Matrix<double, N, 1> &lambdas, unsigned int w = 0,
+                                        unsigned int h = 0,
+                                        double f = 0, double ppx = 0,
+                                        double ppy = 0)
                 : AbstractIntrinsics<DivisionModelIntrinsic>(w, h), ppx_(ppx),
                   ppy_(ppy),
                   f_(f),
@@ -165,18 +181,6 @@ namespace intrinsics {
             lambdas_.setZero();
         }
 
-        /**
-         * @brief See base definition above
-         * @param Class with 'estimate' principal point, focal length and distortion coefficients
-         */
-
-        void estimateParameters(estimators::AbstractEstimator<DivisionModelIntrinsic<N>> &estimator) override {
-            auto res = estimator.getEstimation();
-            ppx_ = res.getPrincipalPointX();
-            ppy_ = res.getPrincipalPointY();
-            f_ = res.getFocalLength();
-            lambdas_ = res.getDistortionCoefficients();
-        }
 
         /**
          * @brief Getter for principal point

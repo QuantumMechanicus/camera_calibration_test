@@ -39,25 +39,13 @@ namespace scene {
 
     typedef Eigen::Matrix3d FundamentalMatrix;
 
-    template<typename Intrinsics>
+    template<typename TDerived>
     struct ICamera {
 
-        virtual ~ICamera() = default;
-
-        virtual void estimateIntrinsics(estimators::AbstractEstimator<Intrinsics> &estimator) = 0;
-
-        virtual void estimateExtrinsicsRotation(estimators::AbstractEstimator<Sophus::SO3d> &estimator) = 0;
-
-        virtual void estimateExtrinsicsTranslation(estimators::AbstractEstimator<Eigen::Vector3d> &estimator) = 0;
-
-        virtual void estimateIntrinsics(const Intrinsics &simple_estimation) = 0;
-
-        virtual void estimateExtrinsicsRotation(const Sophus::SO3d &simple_estimation) = 0;
-
-        virtual void estimateExtrinsicsTranslation(const Eigen::Vector3d &simple_estimation) = 0;
-
-        //virtual void estimatedExtrinsicsMotion(estimators::AbstractEstimator<Sophus::SE3d> &estimator) = 0;
-
+        template<typename TParameter>
+        void estimate(estimators::AbstractEstimator<TParameter> &estimator) {
+            static_cast<TDerived *>(this)->estimateImpl(estimator);
+        }
     };
 }
 

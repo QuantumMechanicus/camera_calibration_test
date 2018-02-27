@@ -6,13 +6,13 @@
 #define CAMERA_CALIBRATION_IGRAPH_H
 
 #include "INode.h"
-#include "Abstract_Edge.h"
+#include "IEdge.h"
 
 namespace graph {
-    template <typename TNode = INode<>, typename TEdge = AbstractEdge<TNode>>
+    template <typename TDerived>
     struct IGraph
     {
-        virtual ~IGraph() = default;
+        //TODO
 
     };
 

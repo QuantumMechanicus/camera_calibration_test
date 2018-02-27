@@ -8,7 +8,7 @@
 #include <utility>
 #include "Camera.h"
 #include "../interfaces/ITwo_View.h"
-#include "../interfaces/Abstract_Edge.h"
+#include "../interfaces/IEdge.h"
 
 namespace scene {
 
@@ -17,7 +17,10 @@ namespace scene {
 
     template<typename IntrinsicsModel, typename TLabel = std::string>
     class TwoView
-            : public graph::AbstractEdge<scene::Camera<IntrinsicsModel, TLabel>>, public ITwoView<IntrinsicsModel> {
+            : public graph::AbstractEdge<scene::Camera<IntrinsicsModel, TLabel>>, public ITwoView<
+                    TwoView<IntrinsicsModel, TLabel>> {
+
+        friend class ITwoView<TwoView<IntrinsicsModel, TLabel>>;
 
         Eigen::Vector3d relativeTranslation_{};
         Sophus::SO3d relativeRotation_{};
@@ -27,15 +30,35 @@ namespace scene {
 
         long number_of_points_{};
 
+    protected:
+
+        void estimateLeftIntrinsicsImpl(estimators::AbstractEstimator<IntrinsicsModel> &estimator) {
+            //if (doesExist())
+            //st_vertex_.lock()->estimateIntrinsics(estimator);
+            this->ptr_to_list_of_vertices_->at(this->start_vertex_label_).estimate(estimator);
+        }
+
+
+        void estimateRightIntrinsicsImpl(estimators::AbstractEstimator<IntrinsicsModel> &estimator) {
+            //if (doesExist())
+            //end_vertex_.lock()->estimateIntrinsics(estimator);
+            this->ptr_to_list_of_vertices_->at(this->end_vertex_label_).estimate(estimator);
+        }
+
+
+        void estimateFundamentalMatrixImpl(estimators::AbstractEstimator<FundamentalMatrix> &estimator) {
+            bifocal_tensor_ = estimator.getEstimation();
+        }
+
+        void estimateFundamentalMatrixImpl(const Eigen::Matrix3d &simple_estimation) {
+            bifocal_tensor_ = simple_estimation;
+        }
+
+
     public:
 
 
-        using graph::AbstractEdge<scene::Camera<IntrinsicsModel>>::start_vertex_label_;
-        using graph::AbstractEdge<scene::Camera<IntrinsicsModel>>::end_vertex_label_;
-        using graph::AbstractEdge<scene::Camera<IntrinsicsModel>>::ptr_to_list_of_vertices_;
-        using graph::AbstractEdge<scene::Camera<IntrinsicsModel>>::getStartVertex;
-        using graph::AbstractEdge<scene::Camera<IntrinsicsModel>>::getFinishVertex;
-        using VertexMap = typename graph::AbstractEdge<scene::Camera<IntrinsicsModel>>::VertexMap ;
+        using VertexMap = typename graph::AbstractEdge<scene::Camera<IntrinsicsModel>>::VertexMap_t;
 
         TwoView() = default;
 
@@ -61,7 +84,7 @@ namespace scene {
 
         bool normalizeLeftKeypoints() {
             //if (doesExist()) {
-            auto &left_camera_ = getStartVertex();
+            auto &left_camera_ = this->getStartVertex();
             double w = left_camera_.getWidth();
             double h = left_camera_.getHeight();
             if (w > 0 && h > 0) {
@@ -78,7 +101,7 @@ namespace scene {
 
         bool normalizeRightKeypoints() {
             //if (doesExist()) {
-            auto &right_camera_ = getFinishVertex();
+            auto &right_camera_ = this->getFinishVertex();
             double w = right_camera_.getWidth();
             double h = right_camera_.getHeight();
             if (w > 0 && h > 0) {
@@ -97,7 +120,7 @@ namespace scene {
 
         bool denormalizeLeftKeypoints() {
 
-            auto &left_camera_ = getStartVertex();
+            auto &left_camera_ = this->getStartVertex();
             double w = left_camera_.getWidth();
             double h = left_camera_.getHeight();
             if (w > 0 && h > 0) {
@@ -113,7 +136,7 @@ namespace scene {
 
         bool denormalizeRightKeypoints() {
 
-            auto &right_camera_ = getFinishVertex();
+            auto &right_camera_ = this->getFinishVertex();
             double w = right_camera_.getWidth();
             double h = right_camera_.getHeight();
             if (w > 0 && h > 0) {
@@ -127,28 +150,6 @@ namespace scene {
             return false;
         }
 
-
-        void estimateLeftIntrinsics(estimators::AbstractEstimator<IntrinsicsModel> &estimator) {
-            //if (doesExist())
-            //st_vertex_.lock()->estimateIntrinsics(estimator);
-            ptr_to_list_of_vertices_->at(start_vertex_label_).estimateIntrinsics(estimator);
-        }
-
-
-        void estimateRightIntrinsics(estimators::AbstractEstimator<IntrinsicsModel> &estimator) {
-            //if (doesExist())
-            //end_vertex_.lock()->estimateIntrinsics(estimator);
-            ptr_to_list_of_vertices_->at(end_vertex_label_).estimateIntrinsics(estimator);
-        }
-
-
-        void estimateFundamentalMatrix(estimators::AbstractEstimator<FundamentalMatrix> &estimator) override {
-            bifocal_tensor_ = estimator.getEstimation();
-        }
-
-        void estimateFundamentalMatrix(const Eigen::Matrix3d &simple_estimation) override {
-            bifocal_tensor_ = simple_estimation;
-        }
 
         template<typename SceneArchiver>
         void saveScene(const SceneArchiver &serializator) const {
@@ -175,25 +176,25 @@ namespace scene {
         const std::shared_ptr<IntrinsicsModel> getLeftIntrinsicsPointer() const {
             /*if (doesExist())
                 return st_vertex_.lock()->getIntrinsicsPointer();*/
-            return ptr_to_list_of_vertices_->at(start_vertex_label_).getIntrinsicsPointer();
+            return this->getStartVertex().getIntrinsicsPointer();
         }
 
         const std::shared_ptr<IntrinsicsModel> getRightIntrinsicsPointer() const {
             /*if (doesExist())
                 return end_vertex_.lock()->getIntrinsicsPointer();*/
-            return ptr_to_list_of_vertices_->at(end_vertex_label_).getIntrinsicsPointer();
+            return this->getFinishVertex().getIntrinsicsPointer();
         }
 
         const IntrinsicsModel &getLeftIntrinsics() const {
             /*if (doesExist())
                 return st_vertex_.lock()->getIntrinsics();*/
-            return ptr_to_list_of_vertices_->at(start_vertex_label_).getIntrinsics();
+            return this->getStartVertex().getIntrinsics();
         }
 
         const IntrinsicsModel &getRightIntrinsics() const {
             /*if (doesExist())
                 return end_vertex_.lock()->getIntrinsics();*/
-            return ptr_to_list_of_vertices_->at(end_vertex_label_).getIntrinsics();
+            return this->getFinishVertex().getIntrinsics();
         }
 
         const Sophus::SO3d &getRelativeRotation() const {
@@ -212,25 +213,25 @@ namespace scene {
         const Sophus::SO3d &getLeftAbsoluteRotation() const {
             /*if (doesExist())
                 return st_vertex_.lock()->getRotation();*/
-            return ptr_to_list_of_vertices_->at(start_vertex_label_).getRotation();
+            return this->getStartVertex().getRotation();
         }
 
         const Sophus::SO3d &getRightAbsoluteRotation() const {
             /*if (doesExist())
                 return end_vertex_.lock()->getRotation();*/
-            return ptr_to_list_of_vertices_->at(end_vertex_label_).getRotation();
+            return this->getFinishVertex().getRotation();
         }
 
         const Eigen::Vector3d &getLeftAbsoluteTranslation() const {
             /*if (doesExist())
                 return st_vertex_.lock()->getTranslation();*/
-            return ptr_to_list_of_vertices_->at(start_vertex_label_).getTranslation();
+            return this->getStartVertex().getTranslation();
         }
 
         const Eigen::Vector3d &getRightAbsoluteTranslation() const {
             /*if (doesExist())
                 return end_vertex_.lock()->getTranslation();*/
-            return ptr_to_list_of_vertices_->at(end_vertex_label_).getTranslation();
+            return this->getFinishVertex().getTranslation();
         }
 
 

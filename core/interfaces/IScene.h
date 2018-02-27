@@ -10,25 +10,29 @@
 #include <memory>
 
 namespace scene {
-    template<typename TCamera, typename TTwoView>
+    template<typename TDerived>
     struct IScene {
 
-        virtual void estimateExtrinsicsTranslation(const typename TCamera::Label &label,
-                                                   estimators::AbstractEstimator<Eigen::Vector3d> &estimator) = 0;
+        template <typename TLabel, typename TEstimator>
+        void estimateCamera(const TLabel &label, TEstimator &estimator)
+        {
+            static_cast<TDerived*>(this)->estimateCameraImpl(label, estimator);
+        }
 
+        //void estimateCameras();
 
-        virtual void estimateExtrinsicsRotation(const typename TCamera::Label &label,
-                                                estimators::AbstractEstimator<Sophus::SO3d> &estimator) = 0;
+        template <typename TEstimator>
+        void estimateStereoPair(size_t label, TEstimator &estimator)
+        {
+            static_cast<TDerived*>(this)->estimateStereoPair(label, estimator);
+        }
 
+        template <typename TEstimator>
+        void estimateStereoPairs(size_t label, TEstimator &estimator)
+        {
+            static_cast<TDerived*>(this)->estimateStereoPairs(label, estimator);
+        }
 
-        virtual void estimateIntrinsics(const typename TCamera::Label &label,
-                                        estimators::AbstractEstimator<typename TCamera::Model> &estimator) = 0;
-
-        virtual void
-        estimateFundamentalMatrix(size_t k, estimators::AbstractEstimator<FundamentalMatrix> &estimator) = 0;
-
-        virtual void
-        estimateFundamentalMatrices(estimators::AbstractEstimator<scene::StdVector<FundamentalMatrix>> &estimator) = 0;
     };
 }
 #endif //CAMERA_CALIBRATION_ISCENE_H

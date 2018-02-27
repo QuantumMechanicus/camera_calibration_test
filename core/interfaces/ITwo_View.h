@@ -10,12 +10,26 @@
 #include "Abstract_Estimator.h"
 
 namespace scene {
-    template<typename Intrinsics>
-    class ITwoView {
+    template<typename TDerived>
+    struct ITwoView {
     public:
-        virtual void estimateFundamentalMatrix(estimators::AbstractEstimator<Eigen::Matrix3d> &estimator) = 0;
+        //TODO forward
+        template <typename TEstimator>
+        void estimateFundamentalMatrix(TEstimator &estimator)
+        {
+            static_cast<TDerived*>(this)->estimateFundamentalMatrixImpl(estimator);
+        }
 
-        virtual void estimateFundamentalMatrix(const Eigen::Matrix3d &simple_estimation) = 0;
+        template <typename TEstimator>
+        void estimateLeftIntrinsics(TEstimator &estimator) {
+            static_cast<TDerived*>(this)->estimateLeftIntrinsicsImpl(estimator);
+        }
+
+        template <typename TEstimator>
+        void estimateRightIntrinsics(TEstimator &estimator) {
+            static_cast<TDerived*>(this)->estimateRightIntrinsicsImpl(estimator);
+        }
+
     };
 }
 

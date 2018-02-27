@@ -19,7 +19,9 @@ namespace scene {
      * @tparam IntrinsicsModel Parametrization of camera intrinsics model (pinhole, fisheye, etc.)
      */
     template<typename IntrinsicsModel, typename TLabel = std::string>
-    class Camera : public ICamera<IntrinsicsModel>, public graph::INode<TLabel> {
+    class Camera
+            : public ICamera<Camera<IntrinsicsModel, TLabel>>,
+              public graph::INode<Camera<IntrinsicsModel, TLabel>, TLabel> {
         std::shared_ptr<IntrinsicsModel> intrinsics_;
         Sophus::SO3d world_rotation_;
         Eigen::Vector3d world_translation_;
@@ -94,34 +96,28 @@ namespace scene {
          * @param estimator Instance of intrinsic estimator
          */
 
-
-        void estimateIntrinsics(estimators::AbstractEstimator<IntrinsicsModel> &estimator) override {
-            intrinsics_->estimateParameters(estimator);
+        void estimateImpl(estimators::AbstractEstimator<IntrinsicsModel> &estimator) {
+            intrinsics_->estimateParameter(estimator);
         }
 
-        void estimateExtrinsicsRotation(estimators::AbstractEstimator<Sophus::SO3d> &estimator) override {
-            world_rotation_ = estimator.getEstimation();
+        void estimateImpl(estimators::AbstractEstimator<Sophus::SO3d> &estimator) {
+            world_rotation_ = std::move(estimator.getEstimation());
         }
 
-        void estimateExtrinsicsTranslation(estimators::AbstractEstimator<Eigen::Vector3d> &estimator) override {
+        void estimateImpl(IntrinsicsModel simple_estimator)
+        {
+            intrinsics_->estimateParameter(simple_estimator);
+        }
+        /*template <>
+        void estimateImpl<Eigen::Vector3d>(estimators::AbstractEstimator<Eigen::Vector3d> &estimator) {
             world_translation_ = estimator.getEstimation();
         }
-
-        void estimateIntrinsics(const IntrinsicsModel &simple_estimation) override {
-            intrinsics_->estimateParametes(simple_estimation);
+        template <>
+        void estimateImpl<IntrinsicsModel>(IntrinsicsModel &simple_estimation) {
+            *intrinsics_ = simple_estimation;
         }
-
-        void estimateExtrinsicsRotation(const Sophus::SO3d &simple_estimation) override {
-            world_rotation_ = simple_estimation;
-        }
-
-        void estimateExtrinsicsTranslation(const Eigen::Vector3d &simple_estimation) override {
-            world_translation_ = simple_estimation;
-        }
-
-        /*void estimatedExtrinsicsMotion(estimators::AbstractEstimator<Sophus::SE3d> &estimator) override {
-
-        }*/
+        */
+        //TODO more simple estimators == setters
 
         /**
          * @brief Getter for intrinsic parameters
@@ -176,7 +172,7 @@ namespace scene {
             return (*intrinsics_).getWidth();
         }
 
-        TLabel getLabel() const override {
+        TLabel getLabelImpl() const {
             return label_;
         }
 

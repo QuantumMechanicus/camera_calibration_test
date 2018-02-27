@@ -101,13 +101,19 @@ namespace scene {
         }
 
         void estimateImpl(estimators::AbstractEstimator<Sophus::SO3d> &estimator) {
-            world_rotation_ = std::move(estimator.getEstimation());
+            world_rotation_ = estimator.getEstimation();
         }
 
         void estimateImpl(IntrinsicsModel simple_estimator)
         {
             intrinsics_->estimateParameter(simple_estimator);
         }
+
+        void estimateImpl(std::shared_ptr<IntrinsicsModel> simple_estimator)
+        {
+            intrinsics_ = simple_estimator;
+        }
+
         /*template <>
         void estimateImpl<Eigen::Vector3d>(estimators::AbstractEstimator<Eigen::Vector3d> &estimator) {
             world_translation_ = estimator.getEstimation();

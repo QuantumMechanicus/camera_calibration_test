@@ -39,11 +39,13 @@ namespace scene {
 
     typedef Eigen::Matrix3d FundamentalMatrix;
 
+    typedef StdVector<FundamentalMatrix> FundamentalMatrices ;
+
     template<typename TDerived>
     struct ICamera {
 
-        template<typename TParameter>
-        void estimate(estimators::AbstractEstimator<TParameter> &estimator) {
+        template<typename TEstimator>
+        void estimate(TEstimator &estimator) {
             static_cast<TDerived *>(this)->estimateImpl(estimator);
         }
     };

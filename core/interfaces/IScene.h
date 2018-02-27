@@ -28,9 +28,9 @@ namespace scene {
         }
 
         template <typename TEstimator>
-        void estimateStereoPairs(size_t label, TEstimator &estimator)
+        void estimateStereoPairs(TEstimator &estimator)
         {
-            static_cast<TDerived*>(this)->estimateStereoPairs(label, estimator);
+            static_cast<TDerived*>(this)->estimateStereoPairs(estimator);
         }
 
     };

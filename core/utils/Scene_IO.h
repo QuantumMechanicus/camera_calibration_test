@@ -101,7 +101,7 @@ namespace scene_serialization {
             return files_.parse(info_file);
         }
 
-        virtual void serialize(const scene::TwoView<typename CameraArchiver::Model> &stereo_pair) const {
+        void serialize(const scene::TwoView<typename CameraArchiver::Model> &stereo_pair) const {
 
 
             utils::saveMatrix(files_.fundamental_matrix_file_name_, stereo_pair.getFundamentalMatrix(), overwrites_[0]);
@@ -128,8 +128,9 @@ namespace scene_serialization {
             archiver.serialize(stereo_pair.getFinishVertex());
         }
 
-        virtual void deserialize(scene::TwoView<typename CameraArchiver::Model> &stereo_pair) const {
-            auto ptr_to_list_of_vertices = stereo_pair.getVertexListPointer();
+        void deserialize(scene::TwoView<typename CameraArchiver::Model> &stereo_pair,
+                         std::shared_ptr<typename scene::TwoView<typename CameraArchiver::Model>::VertexMap_t>
+                         ptr_to_list_of_vertices) const {
 
             Eigen::Matrix3d fundamental_matrix;
             scene::ImagePoints left_points, right_points;
@@ -157,9 +158,9 @@ namespace scene_serialization {
             archiver.deserialize(right_camera);
             if (files_.left_intrinsics_parameters_file_name_ == files_.right_intrinsics_parameters_file_name_) {
                 right_camera = typename CameraArchiver::Camera(right_camera.getLabel(),
-                                                                left_camera.getIntrinsicsPointer(),
-                                                                right_camera.getRotation(),
-                                                                right_camera.getTranslation());
+                                                               left_camera.getIntrinsicsPointer(),
+                                                               right_camera.getRotation(),
+                                                               right_camera.getTranslation());
 
 
             }
@@ -204,7 +205,7 @@ namespace scene_serialization {
                   absolute_motion_file_name_(std::move(absolute_motion_file_name)) {}
 
 
-        virtual void serialize(const scene::Camera<intrinsics::DivisionModelIntrinsic<N>, TInfo> &camera) const {
+        void serialize(const scene::Camera<intrinsics::DivisionModelIntrinsic<N>, TInfo> &camera) const {
             auto intrinsics_ptr = camera.getIntrinsicsPointer();
             Eigen::VectorXd vector_of_parameters(intrinsics_ptr->getNumberOfCofficients() + 5);
             vector_of_parameters.head(
@@ -218,7 +219,7 @@ namespace scene_serialization {
 
         }
 
-        virtual void deserialize(scene::Camera<intrinsics::DivisionModelIntrinsic<N>, TInfo> &camera) {
+        void deserialize(scene::Camera<intrinsics::DivisionModelIntrinsic<N>, TInfo> &camera) {
             intrinsics::DivisionModelIntrinsic<N> intrinsics;
             Eigen::VectorXd vector_of_parameters;
             utils::loadMatrix(intrinsics_parameters_file_name_, vector_of_parameters);

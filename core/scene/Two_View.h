@@ -32,6 +32,19 @@ namespace scene {
 
     protected:
 
+        void estimateLeftIntrinsicsImpl(std::shared_ptr<IntrinsicsModel> simple_estimator) {
+            //if (doesExist())
+            //st_vertex_.lock()->estimateIntrinsics(estimator);
+            this->ptr_to_list_of_vertices_->at(this->start_vertex_label_).estimate(simple_estimator);
+        }
+
+        void estimateRightIntrinsicsImpl(std::shared_ptr<IntrinsicsModel> simple_estimator) {
+            //if (doesExist())
+            //st_vertex_.lock()->estimateIntrinsics(estimator);
+            this->ptr_to_list_of_vertices_->at(this->end_vertex_label_).estimate(simple_estimator);
+        }
+
+
         void estimateLeftIntrinsicsImpl(estimators::AbstractEstimator<IntrinsicsModel> &estimator) {
             //if (doesExist())
             //st_vertex_.lock()->estimateIntrinsics(estimator);
@@ -58,11 +71,11 @@ namespace scene {
     public:
 
 
-        using VertexMap = typename graph::AbstractEdge<scene::Camera<IntrinsicsModel>>::VertexMap_t;
+        using VertexMap_t = typename graph::AbstractEdge<scene::Camera<IntrinsicsModel>>::VertexMap_t;
 
         TwoView() = default;
 
-        TwoView(std::shared_ptr<VertexMap> cameras, TLabel left_camera_label,
+        TwoView(std::shared_ptr<VertexMap_t> cameras, TLabel left_camera_label,
                 TLabel right_camera_label,
                 ImagePoints left_keypoints,
                 ImagePoints right_keypoints,
@@ -157,8 +170,14 @@ namespace scene {
         }
 
         template<typename SceneArchiver>
+        void loadScene(const SceneArchiver &serializator,
+        std::shared_ptr<VertexMap_t> ptr_to_list_of_vertices) {
+            serializator.deserialize(*this, ptr_to_list_of_vertices);
+        }
+
+        template<typename SceneArchiver>
         void loadScene(const SceneArchiver &serializator) {
-            serializator.deserialize(*this);
+            serializator.deserialize(*this, this->ptr_to_list_of_vertices_);
         }
 
         const ImagePoints &getLeftKeypoints() const {

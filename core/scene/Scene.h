@@ -14,8 +14,9 @@ namespace scene {
     class Scene : public IScene<Scene<TCamera, TTwoView>> {
         friend class IScene<Scene<TCamera, TTwoView>>;
 
-        std::shared_ptr<typename TTwoView::VertexMap> ptr_to_map_;
+        std::shared_ptr<typename TTwoView::VertexMap_t> ptr_to_map_;
         std::vector<TTwoView> list_of_stereo_pairs_;
+        //TODO approve TwoViews ptr_to_map and scene ptr_to_map
 
     protected:
         void estimateCameraImpl(const typename TCamera::Label &label,
@@ -56,6 +57,11 @@ namespace scene {
     public:
 
         using Camera_t = TCamera;
+
+        Scene() = default;
+
+        Scene(std::shared_ptr<typename TTwoView::VertexMap_t> ptr_to_map, std::vector<TTwoView> list_of_stereo_pairs)
+                : ptr_to_map_(std::move(ptr_to_map)), list_of_stereo_pairs_(std::move(list_of_stereo_pairs)) {}
 
     };
 

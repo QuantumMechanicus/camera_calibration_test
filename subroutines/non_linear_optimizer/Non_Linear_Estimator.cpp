@@ -8,9 +8,18 @@
 #include "../distortion_groebner_estimator/Groebner_Estimator.h"
 
 namespace non_linear_optimization {
-    /*void NonLinearEstimator::estimate() {
-        if (!estimated_) {
-            estimated_ = true;
+    NonLinearEstimatorOptions::NonLinearEstimatorOptions(int number_of_non_linear_iters, double quantile_to_minimize,
+                                                         double max_interval,
+                                                         double image_radius) :
+            number_of_non_linear_iters_(number_of_non_linear_iters),
+            max_interval_(max_interval),
+            quantile_to_minimize_(quantile_to_minimize),
+            image_radius_(image_radius) {}
+
+    void NonLinearEstimator::estimateImpl() {
+
+        if (!is_estimated_) {
+            is_estimated_ = true;
             int residuals = 0;
             long number_of_distortion_coefficients = lambdas_.rows();
             std::vector<bool> skip(number_of_pairs, false);
@@ -22,17 +31,25 @@ namespace non_linear_optimization {
                 for (size_t kth_pair = 0; kth_pair < number_of_pairs; ++kth_pair) {
                     if (skip[kth_pair])
                         continue;
-                    double *f_ptr = two_view_fundamental_estimators_[kth_pair].getRawFundamentalMatrix();
+                    auto &kth_fundamental_matrix = fundamental_matrices_[kth_pair];
+                    Eigen::JacobiSVD<Eigen::Matrix3d> fmatrix_svd(kth_fundamental_matrix,
+                                                                  Eigen::ComputeFullU | Eigen::ComputeFullV);
+                    Eigen::Vector3d singular_values = fmatrix_svd.singularValues();
+                    singular_values[2] = 0.0;
+                    kth_fundamental_matrix = fmatrix_svd.matrixU() * singular_values.asDiagonal() *
+                                             fmatrix_svd.matrixV().transpose();
+
+                    double *f_ptr = kth_fundamental_matrix.data();
                     problem.AddParameterBlock(f_ptr, 8);
 
                     std::vector<int> inliers_ind;
                     double interval = utils::distortion_problem::findInliers(left_pictures_keypoints_[kth_pair],
                                                                              right_pictures_keypoints_[kth_pair],
                                                                              lambdas_,
-                                                                             two_view_fundamental_estimators_[kth_pair].getFundamentalMatrix(),
+                                                                             kth_fundamental_matrix,
                                                                              options_.quantile_to_minimize_,
                                                                              inliers_ind, options_.image_radius_);
-                    std::cout << "Interval: " << interval << " " << options_.image_radius_<< std::endl;
+                    std::cout << "Interval: " << interval << " " << options_.image_radius_ << std::endl;
                     if (interval > options_.max_interval_) {
                         skip[kth_pair] = true;
                         std::cout << "Skip " << kth_pair + 1 << "-nth stereo pair with high confidence interval --- "
@@ -53,8 +70,10 @@ namespace non_linear_optimization {
                         right.template block<2, 1>(0, 0) = i2d.col(k);
                         left[2] = right[2] = 1.0;
 
-                        auto fun = new ceres::DynamicAutoDiffCostFunction<DivisionDistortionAndFundamentalMatrixOptimizerFunctor, 10>(
-                                new DivisionDistortionAndFundamentalMatrixOptimizerFunctor(left, right, number_of_distortion_coefficients, options_.image_radius_));
+                        auto fun = new ceres::DynamicAutoDiffCostFunction<DivisionDistortionAndFundamentalMatrixOptimizerFunctor<>>(
+                                new DivisionDistortionAndFundamentalMatrixOptimizerFunctor<>(left, right,
+                                                                                           static_cast<int>(number_of_distortion_coefficients),
+                                                                                           options_.image_radius_));
                         fun->AddParameterBlock(static_cast<int>(number_of_distortion_coefficients));
                         fun->AddParameterBlock(8);
                         fun->SetNumResiduals(2);
@@ -86,70 +105,39 @@ namespace non_linear_optimization {
 
 
         }
+
     }
+
+    void NonLinearEstimator::getEstimationImpl(Eigen::RowVectorXd &result) {
+        result = lambdas_;
+    }
+
+    void NonLinearEstimator::getEstimationImpl(scene::FundamentalMatrices &result) {
+        for (auto &kth_fundamental_matrix : fundamental_matrices_) {
+            Eigen::JacobiSVD<Eigen::Matrix3d> fmatrix_svd(kth_fundamental_matrix,
+                                                          Eigen::ComputeFullU | Eigen::ComputeFullV);
+            Eigen::Vector3d singular_values = fmatrix_svd.singularValues();
+            singular_values[2] = 0.0;
+            kth_fundamental_matrix = fmatrix_svd.matrixU() * singular_values.asDiagonal() *
+                                     fmatrix_svd.matrixV().transpose();
+
+        }
+        result = fundamental_matrices_;
+    }
+
+    NonLinearEstimator::NonLinearEstimator(scene::StdVector<scene::ImagePoints> left_pictures_keypoints,
+                                           scene::StdVector<scene::ImagePoints> right_pictures_keypoints,
+                                           scene::StdVector<scene::FundamentalMatrix> fundamental_matrices,
+                                           Eigen::RowVectorXd distortion_coefficients,
+                                           NonLinearEstimatorOptions options) :
+            left_pictures_keypoints_(std::move(left_pictures_keypoints)),
+            right_pictures_keypoints_(std::move(right_pictures_keypoints)),
+            lambdas_(std::move(distortion_coefficients)),
+            fundamental_matrices_(std::move(fundamental_matrices)),
+            is_estimated_(false),
+            options_(options_) {}
 
     bool NonLinearEstimator::isEstimated() const {
-        return estimated_;
+        return is_estimated_;
     }
-
-    NonLinearEstimator::NonLinearEstimator(
-            scene::StdVector<scene::ImagePoints> left_pictures_keypoints,
-            scene::StdVector<scene::ImagePoints> right_pictures_keypoints,
-            const scene::StdVector<scene::FundamentalMatrix> &fundamental_matrices,
-            const intrinsics::DivisionModelIntrinsic<-1> &intrinsic_, NonLinearEstimatorOptions options)
-            : estimators::internal::DivisionModelIntrinsicsEstimator<Eigen::Dynamic>(
-            intrinsic_.getDistortionCoefficients(),
-            intrinsic_.getFocalLength(),
-            intrinsic_.getPrincipalPointX(),
-            intrinsic_.getPrincipalPointY()),
-              left_pictures_keypoints_(std::move(left_pictures_keypoints)),
-              right_pictures_keypoints_(std::move(right_pictures_keypoints)),
-              number_of_pairs(fundamental_matrices.size()),
-              estimated_(false), options_(options) {
-        two_view_fundamental_estimators_.resize(fundamental_matrices.size());
-        for (size_t k = 0; k < fundamental_matrices.size(); ++k) {
-            two_view_fundamental_estimators_[k] = SimpleFundamentalMatrixEstimator(fundamental_matrices[k]);
-        }
-    }
-
-    void SimpleFundamentalMatrixEstimator::estimate() {
-        Eigen::JacobiSVD<Eigen::Matrix3d> fmatrix_svd(fundamental_matrix_, Eigen::ComputeFullU | Eigen::ComputeFullV);
-        Eigen::Vector3d singular_values = fmatrix_svd.singularValues();
-        singular_values[2] = 0.0;
-        fundamental_matrix_ = fmatrix_svd.matrixU() * singular_values.asDiagonal() *
-                              fmatrix_svd.matrixV().transpose();
-    }
-
-    bool SimpleFundamentalMatrixEstimator::isEstimated() const {
-        return estimated_;
-    }
-
-    SimpleFundamentalMatrixEstimator::SimpleFundamentalMatrixEstimator() {
-        estimated_ = false;
-    }
-
-    SimpleFundamentalMatrixEstimator::SimpleFundamentalMatrixEstimator(
-            const scene::FundamentalMatrix &estimated_fundamental_matrix) {
-        fundamental_matrix_ = estimated_fundamental_matrix;
-        estimated_ = true;
-
-    }
-
-    double *SimpleFundamentalMatrixEstimator::getRawFundamentalMatrix() {
-        return fundamental_matrix_.data();
-    }
-
-    NonLinearEstimatorOptions::NonLinearEstimatorOptions(int number_of_non_linear_iters, double quantile_to_minimize,
-                                                         double max_interval,
-                                                         double image_radius) :
-            number_of_non_linear_iters_(number_of_non_linear_iters),
-            max_interval_(max_interval),
-            quantile_to_minimize_(quantile_to_minimize),
-            image_radius_(image_radius) {}
-
-    DivisionDistortionAndFundamentalMatrixOptimizerFunctor::DivisionDistortionAndFundamentalMatrixOptimizerFunctor(const Eigen::Vector3d &left_point, const Eigen::Vector3d &right_point,
-                               int number_of_distortion_coefficients, double image_radius)
-            : left_point_(left_point),
-              right_point_(right_point), number_of_distortion_coefficients_(number_of_distortion_coefficients), image_radius_(image_radius) {}
-    */
 }

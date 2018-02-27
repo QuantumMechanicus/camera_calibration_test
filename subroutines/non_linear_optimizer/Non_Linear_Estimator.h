@@ -7,10 +7,11 @@
 
 #include "Core.h"
 #include <functional>
+#include <utility>
 
 namespace non_linear_optimization {
 
-    /*template<typename TCostFunctor>
+    template<template<typename> class TCostFunctor = utils::distortion_problem::EpipolarCurveDistanceError>
     class DivisionDistortionAndFundamentalMatrixOptimizerFunctor {
         Eigen::Vector3d left_point_, right_point_;
         int number_of_distortion_coefficients_;
@@ -19,10 +20,12 @@ namespace non_linear_optimization {
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
-        DivisionDistortionAndFundamentalMatrixOptimizerFunctor(const Eigen::Vector3d &left_point,
-                                                               const Eigen::Vector3d &right_point,
-                                                               int number_of_distortion_coefficients,
-                                                               double image_radius = 1);
+        DivisionDistortionAndFundamentalMatrixOptimizerFunctor(
+                Eigen::Vector3d left_point, Eigen::Vector3d right_point,
+                int number_of_distortion_coefficients, double image_radius = 1)
+                : left_point_(std::move(left_point)),
+                  right_point_(std::move(right_point)), number_of_distortion_coefficients_(number_of_distortion_coefficients),
+                  image_radius_(image_radius) {}
 
 
         template<typename T>
@@ -78,24 +81,6 @@ namespace non_linear_optimization {
         }
     };
 
-    /*class SimpleFundamentalMatrixEstimator : public estimators::internal::FundamentalMatrixEstimator {
-        bool estimated_;
-
-
-        double *getRawFundamentalMatrix();
-
-        friend class NonLinearEstimator;
-
-    public:
-        SimpleFundamentalMatrixEstimator();
-
-        explicit SimpleFundamentalMatrixEstimator(const scene::FundamentalMatrix &estimated_fundamental_matrix);
-
-        void estimate() override;
-
-        bool isEstimated() const override;
-    };
-
     struct NonLinearEstimatorOptions {
         int number_of_non_linear_iters_;
         double quantile_to_minimize_;
@@ -107,26 +92,35 @@ namespace non_linear_optimization {
     };
 
     class NonLinearEstimator
-            : public estimators::internal::DivisionModelIntrinsicsEstimator<Eigen::Dynamic> {
+            : public estimators::AbstractEstimator<Eigen::RowVectorXd>,
+              public estimators::AbstractEstimator<scene::FundamentalMatrices> {
 
-        std::vector<SimpleFundamentalMatrixEstimator> two_view_fundamental_estimators_;
+        scene::FundamentalMatrices fundamental_matrices_;
+        Eigen::RowVectorXd lambdas_;
         scene::StdVector<scene::ImagePoints> left_pictures_keypoints_, right_pictures_keypoints_;
         size_t number_of_pairs;
-        bool estimated_;
+        bool is_estimated_;
         NonLinearEstimatorOptions options_;
+
+    protected:
+
+        void estimateImpl() override;
+
+        void getEstimationImpl(Eigen::RowVectorXd &result) override;
+
+        void getEstimationImpl(scene::FundamentalMatrices &result) override;
 
     public:
         NonLinearEstimator(scene::StdVector<scene::ImagePoints> left_pictures_keypoints,
                            scene::StdVector<scene::ImagePoints> right_pictures_keypoints,
-                           const scene::StdVector<scene::FundamentalMatrix> &fundamental_matrices,
-                           const intrinsics::DivisionModelIntrinsic<-1> &intrinsics,
+                           scene::StdVector<scene::FundamentalMatrix> fundamental_matrices,
+                           Eigen::RowVectorXd distortion_coefficients,
                            NonLinearEstimatorOptions options = NonLinearEstimatorOptions());
 
-    public:
-        void estimate() override;
 
         bool isEstimated() const override;
-    };*/
+    };
+
 }
 
 #endif //CAMERA_CALIBRATION_NON_LINEAR_ESTIMATOR_H

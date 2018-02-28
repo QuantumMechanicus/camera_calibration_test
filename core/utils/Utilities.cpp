@@ -25,7 +25,7 @@ namespace utils {
                            const scene::ImagePoints &u2d,
                            const Eigen::Matrix<double, Eigen::Dynamic, 1> &distortion_coefficients,
                            const scene::FundamentalMatrix &fundamental_matrix, double expected_percent_of_inliers,
-                           std::vector<int> &inliers_indices, double image_r) {
+                           std::vector<size_t> &inliers_indices, double image_r) {
             std::vector<double> left_residuals, right_residuals, errors(static_cast<unsigned long>(u1d.cols()));
             utils::distortion_problem::computeErrors<utils::distortion_problem::EpipolarCurveDistanceError, double>(u1d,
                                                                                                                     u2d,

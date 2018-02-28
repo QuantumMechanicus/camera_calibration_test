@@ -159,7 +159,7 @@ namespace intrinsics {
             return lambdas_;
         }
 
-        int getNumberOfCofficients() const {
+        int getNumberOfCoefficients() const {
             return static_cast<int>(lambdas_.rows());
         }
 

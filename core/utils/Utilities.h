@@ -127,10 +127,10 @@ namespace utils {
         double estimateConfidenceInterval(double quantile, double expected_percent_of_inliers);
 
         double findInliers(const scene::ImagePoints &u1d,
-                         const scene::ImagePoints &u2d,
-                         const Eigen::Matrix<double, Eigen::Dynamic, 1> &distortion_coefficients,
-                         const scene::FundamentalMatrix &fundamental_matrix, double expected_percent_of_inliers,
-                         std::vector<int> &inliers_indices, double image_r = 1.0);
+                           const scene::ImagePoints &u2d,
+                           const Eigen::Matrix<double, Eigen::Dynamic, 1> &distortion_coefficients,
+                           const scene::FundamentalMatrix &fundamental_matrix, double expected_percent_of_inliers,
+                           std::vector<size_t> &inliers_indices, double image_r = 1.0);
 
 
         template<typename T>

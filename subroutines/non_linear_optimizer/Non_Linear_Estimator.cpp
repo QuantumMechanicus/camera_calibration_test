@@ -4,8 +4,6 @@
 
 #include "Non_Linear_Estimator.h"
 
-#include <utility>
-#include "../distortion_groebner_estimator/Groebner_Estimator.h"
 
 namespace non_linear_optimization {
     NonLinearEstimatorOptions::NonLinearEstimatorOptions(int number_of_non_linear_iters, double quantile_to_minimize,
@@ -43,7 +41,7 @@ namespace non_linear_optimization {
                     double *f_ptr = kth_fundamental_matrix.data();
                     problem.AddParameterBlock(f_ptr, 8);
 
-                    std::vector<int> inliers_ind;
+                    std::vector<size_t> inliers_ind;
                     double interval = utils::distortion_problem::findInliers(left_pictures_keypoints_[kth_pair],
                                                                              right_pictures_keypoints_[kth_pair],
                                                                              lambdas_,

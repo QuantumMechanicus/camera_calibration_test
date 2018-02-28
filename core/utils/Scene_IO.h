@@ -87,15 +87,16 @@ namespace scene_serialization {
                 std::string relative_motion_file_name = "",
                 std::string left_extrinsics_parameters_file_name = "",
                 std::string right_extrinsics_parameters_file_name = "") :
-                files_(std::move(left_camera_info_file_name),
-                       std::move(right_camera_info_file_name),
-                       std::move(relative_motion_file_name),
-                       std::move(right_keypoints_file_name),
+                files_(std::move(fundamental_matrix_file_name),
                        std::move(left_intrinsics_parameters_file_name),
                        std::move(right_intrinsics_parameters_file_name),
+                       std::move(left_keypoints_file_name),
+                       std::move(right_keypoints_file_name),
+                       std::move(left_camera_info_file_name),
+                       std::move(right_camera_info_file_name),
+                       std::move(relative_motion_file_name),
                        std::move(left_extrinsics_parameters_file_name),
-                       std::move(right_extrinsics_parameters_file_name),
-                       std::move(fundamental_matrix_file_name)), overwrites_(std::move(overwrites)) {}
+                       std::move(right_extrinsics_parameters_file_name)), overwrites_(std::move(overwrites)) {}
 
         bool parse(const std::string &info_file) {
             return files_.parse(info_file);
@@ -207,9 +208,9 @@ namespace scene_serialization {
 
         void serialize(const scene::Camera<intrinsics::DivisionModelIntrinsic<N>, TInfo> &camera) const {
             auto intrinsics_ptr = camera.getIntrinsicsPointer();
-            Eigen::VectorXd vector_of_parameters(intrinsics_ptr->getNumberOfCofficients() + 5);
+            Eigen::VectorXd vector_of_parameters(intrinsics_ptr->getNumberOfCoefficients() + 5);
             vector_of_parameters.head(
-                    intrinsics_ptr->getNumberOfCofficients()) = intrinsics_ptr->getDistortionCoefficients();
+                    intrinsics_ptr->getNumberOfCoefficients()) = intrinsics_ptr->getDistortionCoefficients();
             vector_of_parameters.tail(5)
                     << intrinsics_ptr->getFocalLength(), intrinsics_ptr->getPrincipalPointX(), intrinsics_ptr->getPrincipalPointY(), camera.getHeight(), camera.getWidth();
             utils::saveMatrix(intrinsics_parameters_file_name_, vector_of_parameters, true);

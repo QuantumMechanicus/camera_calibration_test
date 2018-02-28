@@ -108,7 +108,7 @@ namespace estimators {
 
             }
         }
-        std::cout << min_quantile << " " << lambdas_(0) << std::endl;
+        std::cout << "Minimal quantile: " << min_quantile << "\nEstimated coefficients:" << lambdas_(0) << std::endl;
     }
 
     void GroebnerDivisionModelEstimator::getEstimationImpl(Eigen::Matrix<double,1,1> &result) {

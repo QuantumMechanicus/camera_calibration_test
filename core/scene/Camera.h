@@ -9,34 +9,57 @@
 #include <utility>
 #include "Sophus/sophus/so3.hpp"
 #include "Sophus/sophus/se3.hpp"
-#include "Camera_Intrinsics.h"
+#include "Intrinsics.h"
 #include "../interfaces/ICamera.h"
 #include "../interfaces/INode.h"
 
 namespace scene {
     /**
      * @brief Class describing position (L = RW + t, where L denotes local coordinates system and W --- world coordinates system) and camera inner parameters
-     * @tparam IntrinsicsModel Parametrization of camera intrinsics model (pinhole, fisheye, etc.)
+     * @tparam TIntrinsicsModel Parametrization of camera intrinsics model (pinhole, fisheye, etc.)
      */
-    template<typename IntrinsicsModel, typename TLabel = std::string>
+    template<typename TIntrinsicsModel, typename TLabel = std::string>
     class Camera
-            : public ICamera<Camera<IntrinsicsModel, TLabel>>,
-              public graph::INode<Camera<IntrinsicsModel, TLabel>, TLabel> {
-        std::shared_ptr<IntrinsicsModel> intrinsics_;
+            : public ICamera<Camera<TIntrinsicsModel, TLabel>>,
+              public graph::INode<Camera<TIntrinsicsModel, TLabel>, TLabel> {
+
+        friend class ICamera<Camera<TIntrinsicsModel, TLabel>>;
+        friend graph::INode<Camera<TIntrinsicsModel, TLabel>, TLabel>;
+
+        std::shared_ptr<TIntrinsicsModel> intrinsics_;
         Sophus::SO3d world_rotation_;
         Eigen::Vector3d world_translation_;
         TLabel label_;
 
+    protected:
+        TLabel getLabelImpl() const {
+            return label_;
+        }
+
+        template<typename TEstimator>
+        void estimateImpl(TEstimator &estimator) {
+            intrinsics_->estimateParameter(estimator);
+        }
+
+        void estimateImpl(estimators::AbstractEstimator<Sophus::SO3d> &estimator) {
+            world_rotation_ = estimator.getEstimation();
+        }
+
+        void estimateImpl(std::shared_ptr<TIntrinsicsModel> simple_estimator) {
+            intrinsics_ = simple_estimator;
+        }
+
+        //TODO more simple estimators == setters
+
+
     public:
 
-        typedef IntrinsicsModel Model;
-        typedef TLabel Label;
+        using Model_t = TIntrinsicsModel;
 
-        /**
-         * @brief Constructor
-         */
+
+
         Camera() : world_rotation_{}, world_translation_{}, label_{} {
-            intrinsics_ = std::make_shared<IntrinsicsModel>(IntrinsicsModel());
+            intrinsics_ = std::make_shared<TIntrinsicsModel>(TIntrinsicsModel());
         }
 
         Camera(Camera &&rhs) noexcept = default;
@@ -53,7 +76,7 @@ namespace scene {
          * @param rotation  Rotation element R of transform from world coordinates to local camera coordinates
          * @param translation Translation element t of transform from world coordinates to local camera coordinates
          */
-        Camera(TLabel label, std::shared_ptr<IntrinsicsModel> intrinsics, Sophus::SO3d rotation,
+        Camera(TLabel label, std::shared_ptr<TIntrinsicsModel> intrinsics, Sophus::SO3d rotation,
                Eigen::Vector3d translation) : label_(std::move(label)), intrinsics_(std::move(intrinsics)),
                                               world_rotation_(std::move(rotation)),
                                               world_translation_(std::move(translation)) {}
@@ -65,9 +88,9 @@ namespace scene {
          * @param rotation  Rotation element R of transform from world coordinates to local camera coordinates
          * @param translation Translation element t of transform from world coordinates to local camera coordinates
          */
-        Camera(TLabel label, IntrinsicsModel intrinsics, Sophus::SO3d rotation,
+        Camera(TLabel label, TIntrinsicsModel intrinsics, Sophus::SO3d rotation,
                Eigen::Vector3d translation) : label_(std::move(label)),
-                                              intrinsics_(std::make_shared<IntrinsicsModel>(intrinsics)),
+                                              intrinsics_(std::make_shared<TIntrinsicsModel>(intrinsics)),
                                               world_rotation_(std::move(rotation)),
                                               world_translation_(std::move(translation)) {}
 
@@ -75,57 +98,27 @@ namespace scene {
         /**
          * @brief Another version of constructor
          */
-        Camera(TLabel label, std::shared_ptr<IntrinsicsModel> intrinsics) : label_(std::move(label)),
-                                                                            intrinsics_(std::move(intrinsics)),
-                                                                            world_rotation_() {
+        Camera(TLabel label, std::shared_ptr<TIntrinsicsModel> intrinsics) : label_(std::move(label)),
+                                                                             intrinsics_(std::move(intrinsics)),
+                                                                             world_rotation_() {
             world_translation_.setZero();
         }
 
         /**
          * @brief Another version of constructor
          */
-        Camera(TLabel label, std::shared_ptr<const IntrinsicsModel> intrinsics) : label_(std::move(label)),
-                                                                                  intrinsics_(std::move(intrinsics)),
-                                                                                  world_rotation_() {
+        Camera(TLabel label, std::shared_ptr<const TIntrinsicsModel> intrinsics) : label_(std::move(label)),
+                                                                                   intrinsics_(std::move(intrinsics)),
+                                                                                   world_rotation_() {
             world_translation_.setZero();
         }
 
-        /**
-         * @brief Method to estimate intrinsics parameters of camera
-         * @tparam IntrinsicsEstimator Class with 'estimate' method
-         * @param estimator Instance of intrinsic estimator
-         */
-
-        template <typename TEstimator>
-        void estimateImpl(TEstimator &estimator) {
-            intrinsics_->estimateParameter(estimator);
-        }
-
-        void estimateImpl(estimators::AbstractEstimator<Sophus::SO3d> &estimator) {
-            world_rotation_ = estimator.getEstimation();
-        }
-
-        void estimateImpl(std::shared_ptr<IntrinsicsModel> simple_estimator)
-        {
-            intrinsics_ = simple_estimator;
-        }
-
-        /*template <>
-        void estimateImpl<Eigen::Vector3d>(estimators::AbstractEstimator<Eigen::Vector3d> &estimator) {
-            world_translation_ = estimator.getEstimation();
-        }
-        template <>
-        void estimateImpl<IntrinsicsModel>(IntrinsicsModel &simple_estimation) {
-            *intrinsics_ = simple_estimation;
-        }
-        */
-        //TODO more simple estimators == setters
 
         /**
          * @brief Getter for intrinsic parameters
          * @return Pointer to intrinsics
          */
-        const std::shared_ptr<IntrinsicsModel> getIntrinsicsPointer() const {
+        const std::shared_ptr<TIntrinsicsModel> getIntrinsicsPointer() const {
             return intrinsics_;
         }
 
@@ -133,7 +126,7 @@ namespace scene {
          * @brief Getter for intrinsic parameters
          * @return Intrinsic object
          */
-        const IntrinsicsModel &getIntrinsics() const {
+        const TIntrinsicsModel &getIntrinsics() const {
             return *intrinsics_;
         }
 
@@ -153,6 +146,10 @@ namespace scene {
             return world_translation_;
         }
 
+        /**
+         * @brief Getter for camera local coordinates
+         * @return element of SE3d
+         */
         Sophus::SE3d getMotion() const {
 
             return Sophus::SE3d(world_rotation_, world_translation_);
@@ -172,10 +169,6 @@ namespace scene {
          */
         unsigned int getWidth() const {
             return (*intrinsics_).getWidth();
-        }
-
-        TLabel getLabelImpl() const {
-            return label_;
         }
 
     };

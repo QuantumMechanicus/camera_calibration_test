@@ -10,24 +10,37 @@
 #include "Abstract_Estimator.h"
 
 namespace scene {
+    /**
+     * @brief Base class for stereo pair
+     * @tparam TDerived --- CRTP
+     */
     template<typename TDerived>
     struct ITwoView {
     public:
         //TODO forward
+        /**
+         * @brief Estimate fundamental matrix via estimator
+         */
         template <typename TEstimator>
         void estimateFundamentalMatrix(TEstimator &estimator)
         {
             static_cast<TDerived*>(this)->estimateFundamentalMatrixImpl(estimator);
         }
 
+        /**
+         * @brief Estimate any parameter of left camera (e.g. intrinsics, extrinsic), see implementation for details
+         */
         template <typename TEstimator>
-        void estimateLeftIntrinsics(TEstimator &estimator) {
-            static_cast<TDerived*>(this)->estimateLeftIntrinsicsImpl(estimator);
+        void estimateLeftCamera(TEstimator &estimator) {
+            static_cast<TDerived*>(this)->estimateLeftCameraImpl(estimator);
         }
 
+        /**
+         * @brief Estimate any parameter of left camera (e.g. intrinsics, extrinsic), see implementation for details
+         */
         template <typename TEstimator>
-        void estimateRightIntrinsics(TEstimator &estimator) {
-            static_cast<TDerived*>(this)->estimateRightIntrinsicsImpl(estimator);
+        void estimateRightCamera(TEstimator &estimator) {
+            static_cast<TDerived*>(this)->estimateRightCameraImpl(estimator);
         }
 
     };

@@ -19,16 +19,17 @@ namespace non_linear_optimization {
     void NonLinearEstimator::estimateImpl() {
 
         if (!is_estimated_) {
+            std::cout << "Iters: " << options_.number_of_non_linear_iters_ << std::endl;
             is_estimated_ = true;
             int residuals = 0;
             long number_of_distortion_coefficients = lambdas_.rows();
-            std::vector<bool> skip(number_of_pairs, false);
+            std::vector<bool> skip(number_of_pairs_, false);
             for (size_t iters = 0; iters < options_.number_of_non_linear_iters_; ++iters) {
                 ceres::Problem problem;
                 double *lambda_ptr = lambdas_.data();
                 problem.AddParameterBlock(lambda_ptr, static_cast<int>(number_of_distortion_coefficients));
 
-                for (size_t kth_pair = 0; kth_pair < number_of_pairs; ++kth_pair) {
+                for (size_t kth_pair = 0; kth_pair < number_of_pairs_; ++kth_pair) {
                     if (skip[kth_pair])
                         continue;
                     auto &kth_fundamental_matrix = fundamental_matrices_[kth_pair];
@@ -135,7 +136,9 @@ namespace non_linear_optimization {
             lambdas_(std::move(distortion_coefficients)),
             fundamental_matrices_(std::move(fundamental_matrices)),
             is_estimated_(false),
-            options_(options_) {}
+            options_(options){
+        number_of_pairs_ = left_pictures_keypoints_.size();
+    }
 
     bool NonLinearEstimator::isEstimated() const {
         return is_estimated_;

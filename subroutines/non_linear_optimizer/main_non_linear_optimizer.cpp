@@ -7,9 +7,10 @@
 int main(int argc, char *argv[]) {
 
     std::vector<std::string> f_infos;
+    int number_of_distortion_coefficients;
     int non_linear_iter;
     double percent_of_inliers;
-    int number_of_distortion_coefficients;
+
     namespace po = boost::program_options;
     try {
 
@@ -19,7 +20,7 @@ int main(int argc, char *argv[]) {
                 ("d", po::value<std::vector<std::string>>(&f_infos)->multitoken()->required(),
                  "File with data describes path to keypoints, cameras info etc (see examples)")
                 ("i", po::value<int>(&non_linear_iter)->default_value(1), "Number of non linear iterations")
-                ("q", po::value<double>(&percent_of_inliers)->default_value(0.1), "quantile to minimize"),
+                ("q", po::value<double>(&percent_of_inliers)->default_value(0.1), "quantile to minimize")
                 ("c", po::value<int>(&number_of_distortion_coefficients)->default_value(1), "number of distortion coefficients");
 
         po::variables_map vm;
@@ -37,7 +38,6 @@ int main(int argc, char *argv[]) {
     }
     auto number_of_pairs = f_infos.size();
 
-
     std::shared_ptr<std::map<std::string, scene::Camera<intrinsics::DivisionModelIntrinsic<Eigen::Dynamic>>>> cameras
             = std::make_shared<std::map<std::string, scene::Camera<intrinsics::DivisionModelIntrinsic<Eigen::Dynamic>>>>(
                     std::map<std::string, scene::Camera<intrinsics::DivisionModelIntrinsic<Eigen::Dynamic>>>());
@@ -50,23 +50,30 @@ int main(int argc, char *argv[]) {
     double mean_f = 0;
     double w = 0;
     double h = 0;
+
+    std::vector<scene_serialization::SimpleSceneArchiver<scene_serialization::SimpleDivisionModelArchiver<-1>>> archivers(number_of_pairs);
     for (size_t k = 0; k < number_of_pairs; ++k) {
-        scene_serialization::SimpleSceneArchiver<scene_serialization::SimpleDivisionModelArchiver<std::string, -1>> archiver;
-        archiver.parse(f_infos[k]);
+        archivers[k].parse(f_infos[k]);
         scene::TwoView<intrinsics::DivisionModelIntrinsic<Eigen::Dynamic>> stereo_pair;
-        stereo_pair.loadScene(archiver, cameras);
+        stereo_pair.loadScene(archivers[k], cameras);
         stereo_pairs[k] = stereo_pair;
-        mean_distortion_coefficient += stereo_pair.getLeftIntrinsics().getDistortionCoefficients()(0);
-        mean_ppx += stereo_pair.getLeftIntrinsics().getPrincipalPointX();
-        mean_ppy += stereo_pair.getLeftIntrinsics().getPrincipalPointY();
-        mean_f += stereo_pair.getLeftIntrinsics().getFocalLength();
-        stereo_pairs[k].normalizeLeftKeypoints();
-        stereo_pairs[k].normalizeRightKeypoints();
+        mean_distortion_coefficient += (stereo_pair.getLeftIntrinsics().getDistortionCoefficients()(0) +
+                                        stereo_pair.getRightIntrinsics().getDistortionCoefficients()(0)) / 2.0;
+        mean_ppx += (stereo_pair.getLeftIntrinsics().getPrincipalPointX() +
+                     stereo_pair.getRightIntrinsics().getPrincipalPointX()) / 2.0;
+        mean_ppy += (stereo_pair.getLeftIntrinsics().getPrincipalPointY() +
+                     stereo_pair.getRightIntrinsics().getPrincipalPointY()) / 2.0;
+        mean_f += (stereo_pair.getLeftIntrinsics().getFocalLength() +
+                   stereo_pair.getRightIntrinsics().getFocalLength()) / 2.0;
+
         w += (stereo_pairs[k].getLeftIntrinsicsPointer()->getWidth() +
               stereo_pairs[k].getLeftIntrinsicsPointer()->getWidth()) / 2.0;
 
         h += (stereo_pairs[k].getLeftIntrinsicsPointer()->getHeight() +
               stereo_pairs[k].getLeftIntrinsicsPointer()->getHeight()) / 2.0;
+
+        stereo_pairs[k].normalizeLeftKeypoints();
+        stereo_pairs[k].normalizeRightKeypoints();
 
     }
     w /= number_of_pairs;
@@ -87,12 +94,13 @@ int main(int argc, char *argv[]) {
     scene::StdVector<scene::ImagePoints> left_pictures_keypoints, right_pictures_keypoints;
 
     for (size_t k = 0; k < number_of_pairs; ++k) {
+
         left_pictures_keypoints.push_back(stereo_pairs[k].getLeftKeypoints());
         right_pictures_keypoints.push_back(stereo_pairs[k].getRightKeypoints());
         fundamental_matrices.push_back(stereo_pairs[k].getFundamentalMatrix());
 
-        stereo_pairs[k].estimateLeftIntrinsics(common_intrinsics_parameters);
-        stereo_pairs[k].estimateRightIntrinsics(common_intrinsics_parameters);
+        stereo_pairs[k].estimateLeftCamera(common_intrinsics_parameters);
+        stereo_pairs[k].estimateRightCamera(common_intrinsics_parameters);
     }
     double image_radius = std::sqrt((w / 2) * (w / 2) + (h / 2) * (h / 2));
     non_linear_optimization::NonLinearEstimatorOptions options(non_linear_iter, percent_of_inliers, 100, image_radius);
@@ -100,14 +108,20 @@ int main(int argc, char *argv[]) {
                                                           fundamental_matrices,
                                                           common_intrinsics_parameters->getDistortionCoefficients(),
                                                           options);
+
+
     common_intrinsics_parameters->estimateParameter(estimator);
     scene::Scene<scene::Camera<intrinsics::DivisionModelIntrinsic<-1>>> scene(cameras, stereo_pairs);
     scene.estimateStereoPairs(estimator);
+    scene.saveScene(archivers);
+
+    // std::cout << "Test use count" << common_intrinsics_parameters.use_count() << std::endl;
+
     /*
     //This is for test (later will be added for gtest)
     std::cout << "T\n";
     std::cout << common_intrinsics_parameters.use_count() << std::endl;
-    for (size_t k = 0; k < number_of_pairs; ++k) {
+    for (size_t k = 0; k < number_of_pairs_; ++k) {
 
         stereo_pairs[k] = scene::TwoView<intrinsics::DivisionModelIntrinsic<Eigen::Dynamic>>(
                 scene::Camera<intrinsics::DivisionModelIntrinsic<Eigen::Dynamic>>(common_intrinsics_parameters,

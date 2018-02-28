@@ -62,8 +62,8 @@ int main(int argc, char *argv[]) {
         estimators::GroebnerEstimatorOptions opt(iter, percent_of_inliers, lambda_lower_bound, lambda_upper_bound, r);
         estimators::GroebnerDivisionModelEstimator groebner_estimator(stereo_pair.getLeftKeypoints(),
                                                                       stereo_pair.getRightKeypoints(), opt);
-        stereo_pair.estimateLeftIntrinsics(groebner_estimator);
-        stereo_pair.estimateRightIntrinsics(groebner_estimator);
+        stereo_pair.estimateLeftCamera(groebner_estimator);
+        stereo_pair.estimateRightCamera(groebner_estimator);
         stereo_pair.estimateFundamentalMatrix(groebner_estimator);
 
 

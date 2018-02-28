@@ -7,68 +7,10 @@
 
 #include <Eigen/Dense>
 #include "../interfaces/Abstract_Estimator.h"
-
+#include "../interfaces/IIntrinsics.h"
 
 namespace intrinsics {
 
-/**
- * @brief Base class to store intrinsic parameters of camera (e. g. width, height, focal length)
- */
-    template<typename TDerived>
-    class AbstractIntrinsics {
-
-    protected:
-        unsigned int w_;
-        unsigned int h_;
-
-
-    public:
-        /**
-         * @brief Constructor
-         * @param w Width of the image
-         * @param h Height of the image
-         */
-        explicit AbstractIntrinsics(unsigned int w = 0, unsigned int h = 0) : w_(w), h_(h) {};
-
-
-        /**
-        * @brief Method for identifying unknown parameters of model
-        * @param estimator Class with 'estimate' method
-        */
-        //TODO change
-        template<typename TEstimator>
-        void estimateParameter(TEstimator &estimator) {
-            static_cast<TDerived *>(this)->estimateParameterImpl(estimator);
-        }
-
-
-        /**
-         * @brief Getter for width of the image
-         * @return width of the image
-         */
-        unsigned int getWidth() const {
-            return w_;
-        }
-
-        /**
-         * @brief Getter for height of the image
-         * @return height of the image
-         */
-        unsigned int getHeight() const {
-            return h_;
-        }
-
-        /**
-        * @brief Equality operator
-        * @param other Instance of intrinsics
-        * @return True if type of other and this the same and their fields are equal
-        */
-        bool operator==(const AbstractIntrinsics<TDerived> &other) const {
-
-            return static_cast<TDerived *>(this)->isEqualImpl(other);
-        }
-
-    };
 
 /**
  * @brief Intrinsic parameters of division model for radial distortion (see A. W. Fitzgibbon "Simultaneous linear estimation of multiple view geometry and lens distortion")
@@ -110,9 +52,9 @@ namespace intrinsics {
             *this = std::move(estimator);
         }
 
-        void estimateParameterImpl(estimators::AbstractEstimator<Eigen::Matrix<double,1,N>> &estimator) {
+        void estimateParameterImpl(estimators::AbstractEstimator<Eigen::Matrix<double, 1, N>> &estimator) {
 
-            lambdas_= estimator.getEstimation();
+            lambdas_ = estimator.getEstimation();
         }
 
     public:

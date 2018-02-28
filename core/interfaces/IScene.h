@@ -10,6 +10,10 @@
 #include <memory>
 
 namespace scene {
+    /**
+     * @brief Base class for scene (store several cameras)
+     * @tparam TDerived --- CRTP
+     */
     template<typename TDerived>
     struct IScene {
 
@@ -19,18 +23,18 @@ namespace scene {
             static_cast<TDerived*>(this)->estimateCameraImpl(label, estimator);
         }
 
-        //void estimateCameras();
+        //void estimateCameras(...);
 
         template <typename TEstimator>
         void estimateStereoPair(size_t label, TEstimator &estimator)
         {
-            static_cast<TDerived*>(this)->estimateStereoPair(label, estimator);
+            static_cast<TDerived*>(this)->estimateStereoPairImpl(label, estimator);
         }
 
         template <typename TEstimator>
         void estimateStereoPairs(TEstimator &estimator)
         {
-            static_cast<TDerived*>(this)->estimateStereoPairs(estimator);
+            static_cast<TDerived*>(this)->estimateStereoPairsImpl(estimator);
         }
 
     };

@@ -101,7 +101,7 @@ namespace scene_serialization {
             return files_.parse(info_file);
         }
 
-        void serialize(const scene::TwoView<typename CameraArchiver::Model> &stereo_pair) const {
+        void serialize(const scene::TwoView<typename CameraArchiver::Model_t> &stereo_pair) const {
 
 
             utils::saveMatrix(files_.fundamental_matrix_file_name_, stereo_pair.getFundamentalMatrix(), overwrites_[0]);
@@ -128,8 +128,8 @@ namespace scene_serialization {
             archiver.serialize(stereo_pair.getFinishVertex());
         }
 
-        void deserialize(scene::TwoView<typename CameraArchiver::Model> &stereo_pair,
-                         std::shared_ptr<typename scene::TwoView<typename CameraArchiver::Model>::VertexMap_t>
+        void deserialize(scene::TwoView<typename CameraArchiver::Model_t> &stereo_pair,
+                         std::shared_ptr<typename scene::TwoView<typename CameraArchiver::Model_t>::VertexMap_t>
                          ptr_to_list_of_vertices) const {
 
             Eigen::Matrix3d fundamental_matrix;
@@ -144,7 +144,7 @@ namespace scene_serialization {
             if (!relative_motion_matrix.isZero())
                 relative_motion = Sophus::SE3d::fitToSE3(relative_motion_matrix);
 
-            typename CameraArchiver::Camera left_camera, right_camera;
+            typename CameraArchiver::Camera_t left_camera, right_camera;
 
             CameraArchiver archiver;
 
@@ -157,10 +157,10 @@ namespace scene_serialization {
                                       files_.right_extrinsics_parameters_file_name_);
             archiver.deserialize(right_camera);
             if (files_.left_intrinsics_parameters_file_name_ == files_.right_intrinsics_parameters_file_name_) {
-                right_camera = typename CameraArchiver::Camera(right_camera.getLabel(),
-                                                               left_camera.getIntrinsicsPointer(),
-                                                               right_camera.getRotation(),
-                                                               right_camera.getTranslation());
+                right_camera = typename CameraArchiver::Camera_t(right_camera.getLabel(),
+                                                                 left_camera.getIntrinsicsPointer(),
+                                                                 right_camera.getRotation(),
+                                                                 right_camera.getTranslation());
 
 
             }
@@ -168,7 +168,7 @@ namespace scene_serialization {
             (*ptr_to_list_of_vertices)[left_camera.getLabel()] = left_camera;
             (*ptr_to_list_of_vertices)[right_camera.getLabel()] = right_camera;
 
-            stereo_pair = scene::TwoView<typename CameraArchiver::Model, typename CameraArchiver::Label>(
+            stereo_pair = scene::TwoView<typename CameraArchiver::Model_t, typename CameraArchiver::Label_t>(
                     ptr_to_list_of_vertices,
                     left_camera.getLabel(),
                     right_camera.getLabel(), left_points,
@@ -177,7 +177,7 @@ namespace scene_serialization {
         }
     };
 
-    template<typename TInfo = std::string, int N = 1>
+    template<int N = 1, typename TInfo = std::string>
     class SimpleDivisionModelArchiver {
         std::string intrinsics_parameters_file_name_;
         std::string absolute_motion_file_name_;
@@ -187,9 +187,9 @@ namespace scene_serialization {
         bool overwrite_info_;
 
     public:
-        typedef scene::Camera<intrinsics::DivisionModelIntrinsic<N>, TInfo> Camera;
-        typedef intrinsics::DivisionModelIntrinsic<N> Model;
-        typedef TInfo Label;
+        using Camera_t = scene::Camera<intrinsics::DivisionModelIntrinsic<N>, TInfo>;
+        using Model_t =  intrinsics::DivisionModelIntrinsic<N>;
+        using Label_t = TInfo;
 
 
         explicit SimpleDivisionModelArchiver(std::string camera_info_file_name = "",
@@ -226,7 +226,6 @@ namespace scene_serialization {
             if (vector_of_parameters.size() >= 5) {
                 Eigen::VectorXd distortion_coefficients_dynamic = vector_of_parameters.head(
                         vector_of_parameters.size() - 5);
-                Eigen::Matrix<double, N, 1> distortion_coefficients;
                 double ppx, ppy, w, h, f;
                 w = vector_of_parameters[vector_of_parameters.size() - 1];
                 h = vector_of_parameters[vector_of_parameters.size() - 2];
@@ -234,11 +233,14 @@ namespace scene_serialization {
                 ppx = vector_of_parameters[vector_of_parameters.size() - 4];
                 f = vector_of_parameters[vector_of_parameters.size() - 5];
                 if (N != Eigen::Dynamic) {
-                    distortion_coefficients = distortion_coefficients_dynamic.head(N);
-                }
-                intrinsics = intrinsics::DivisionModelIntrinsic<N>(distortion_coefficients,
-                                                                   static_cast<unsigned int>(w),
-                                                                   static_cast<unsigned int>(h), f, ppx, ppy);
+                    intrinsics = intrinsics::DivisionModelIntrinsic<N>(distortion_coefficients_dynamic.head(N),
+                                                                       static_cast<unsigned int>(w),
+                                                                       static_cast<unsigned int>(h), f, ppx, ppy);
+                } else
+                    intrinsics = intrinsics::DivisionModelIntrinsic<N>(distortion_coefficients_dynamic,
+                                                                       static_cast<unsigned int>(w),
+                                                                       static_cast<unsigned int>(h), f, ppx, ppy);
+
             }
             std::fstream info(camera_info_file_name_, std::fstream::in);
             TInfo label;

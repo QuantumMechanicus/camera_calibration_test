@@ -24,7 +24,8 @@ namespace non_linear_optimization {
                 Eigen::Vector3d left_point, Eigen::Vector3d right_point,
                 int number_of_distortion_coefficients, double image_radius = 1)
                 : left_point_(std::move(left_point)),
-                  right_point_(std::move(right_point)), number_of_distortion_coefficients_(number_of_distortion_coefficients),
+                  right_point_(std::move(right_point)),
+                  number_of_distortion_coefficients_(number_of_distortion_coefficients),
                   image_radius_(image_radius) {}
 
 
@@ -98,7 +99,7 @@ namespace non_linear_optimization {
         scene::FundamentalMatrices fundamental_matrices_;
         Eigen::RowVectorXd lambdas_;
         scene::StdVector<scene::ImagePoints> left_pictures_keypoints_, right_pictures_keypoints_;
-        size_t number_of_pairs;
+        size_t number_of_pairs_;
         bool is_estimated_;
         NonLinearEstimatorOptions options_;
 

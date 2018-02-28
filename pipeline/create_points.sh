@@ -58,3 +58,4 @@ sed -ri "s|^|--d $out_dir|" $temp
 paste $temp| sed 's#^\(.*\)$#./bin/groebner_automatic_solver \1 --i 1000000#g' | parallel
 
 rm $temp
+

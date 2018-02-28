@@ -7,7 +7,7 @@
 
 #include "../utils/Utilities.h"
 #include "../utils/Scene_IO.h"
-#include "../scene/Camera_Intrinsics.h"
+#include "../scene/Intrinsics.h"
 #include "../scene/Scene.h"
 
 

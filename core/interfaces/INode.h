@@ -7,17 +7,20 @@
 
 namespace graph {
 
+    /**
+     * @brief Base class for labled vertex
+     * @tparam TDerived --- CRTP
+     * @tparam TLabel --- information stored in vertex
+     */
     template<typename TDerived, typename TLabel = int>
     struct INode {
 
-        typedef TLabel NodeLabel;
+        using Label_t = TLabel;
 
         TLabel getLabel() const
         {
             return static_cast<const TDerived*>(this)->getLabelImpl();
         }
-
-        using NodeLabel_t = TLabel;
 
     };
 

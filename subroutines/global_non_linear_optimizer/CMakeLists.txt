@@ -1,0 +1,2 @@
+add_executable(global_non_linear_optimizer main_global_non_linear_optimizer.cpp)
+target_link_libraries(non_linear_optimizer core)

@@ -12,15 +12,13 @@
 
 namespace scene {
 
-    template<typename TLabel, typename IntrinsicsModel>
-    using MapLabelToCamera = std::map<TLabel, scene::Camera<IntrinsicsModel>>;
 
-    template<typename IntrinsicsModel, typename TLabel = std::string>
+    template<typename TIntrinsicsModel, typename TLabel = std::string>
     class TwoView
-            : public graph::AbstractEdge<scene::Camera<IntrinsicsModel, TLabel>>, public ITwoView<
-                    TwoView<IntrinsicsModel, TLabel>> {
+            : public graph::AbstractEdge<scene::Camera<TIntrinsicsModel, TLabel>>, public ITwoView<
+                    TwoView<TIntrinsicsModel, TLabel>> {
 
-        friend class ITwoView<TwoView<IntrinsicsModel, TLabel>>;
+        friend class ITwoView<TwoView<TIntrinsicsModel, TLabel>>;
 
         Eigen::Vector3d relativeTranslation_{};
         Sophus::SO3d relativeRotation_{};
@@ -33,15 +31,13 @@ namespace scene {
     protected:
 
         template <typename TEstimator>
-        void estimateLeftIntrinsicsImpl(TEstimator &estimator)
+        void estimateLeftCameraImpl(TEstimator &estimator)
         {
             this->ptr_to_list_of_vertices_->at(this->start_vertex_label_).estimate(estimator);
         }
 
         template <typename TEstimator>
-        void estimateRightIntrinsicsImpl(TEstimator &estimator) {
-            //if (doesExist())
-            //end_vertex_.lock()->estimateIntrinsics(estimator);
+        void estimateRightCameraImpl(TEstimator &estimator) {
             this->ptr_to_list_of_vertices_->at(this->end_vertex_label_).estimate(estimator);
         }
 
@@ -58,7 +54,7 @@ namespace scene {
     public:
 
 
-        using VertexMap_t = typename graph::AbstractEdge<scene::Camera<IntrinsicsModel>>::VertexMap_t;
+        using VertexMap_t = typename graph::AbstractEdge<scene::Camera<TIntrinsicsModel>>::VertexMap_t;
 
         TwoView() = default;
 
@@ -69,7 +65,7 @@ namespace scene {
                 FundamentalMatrix bifocal_tensor = FundamentalMatrix::Zero(),
                 Sophus::SO3d relativeRotation = Sophus::SO3d(),
                 Eigen::Vector3d relativeTranslation = Eigen::Vector3d::Zero())
-                : graph::AbstractEdge<scene::Camera<IntrinsicsModel>>(
+                : graph::AbstractEdge<scene::Camera<TIntrinsicsModel>>(
                 std::move(left_camera_label),
                 std::move(right_camera_label), cameras),
                   left_keypoints_(std::move(left_keypoints)),
@@ -83,7 +79,7 @@ namespace scene {
 
 
         bool normalizeLeftKeypoints() {
-            //if (doesExist()) {
+
             auto &left_camera_ = this->getStartVertex();
             double w = left_camera_.getWidth();
             double h = left_camera_.getHeight();
@@ -100,7 +96,7 @@ namespace scene {
         }
 
         bool normalizeRightKeypoints() {
-            //if (doesExist()) {
+
             auto &right_camera_ = this->getFinishVertex();
             double w = right_camera_.getWidth();
             double h = right_camera_.getHeight();
@@ -179,67 +175,46 @@ namespace scene {
             return bifocal_tensor_;
         }
 
-        const std::shared_ptr<IntrinsicsModel> getLeftIntrinsicsPointer() const {
-            /*if (doesExist())
-                return st_vertex_.lock()->getIntrinsicsPointer();*/
+        const std::shared_ptr<TIntrinsicsModel> getLeftIntrinsicsPointer() const {
             return this->getStartVertex().getIntrinsicsPointer();
         }
 
-        const std::shared_ptr<IntrinsicsModel> getRightIntrinsicsPointer() const {
-            /*if (doesExist())
-                return end_vertex_.lock()->getIntrinsicsPointer();*/
+        const std::shared_ptr<TIntrinsicsModel> getRightIntrinsicsPointer() const {
             return this->getFinishVertex().getIntrinsicsPointer();
         }
 
-        const IntrinsicsModel &getLeftIntrinsics() const {
-            /*if (doesExist())
-                return st_vertex_.lock()->getIntrinsics();*/
+        const TIntrinsicsModel &getLeftIntrinsics() const {
             return this->getStartVertex().getIntrinsics();
         }
 
-        const IntrinsicsModel &getRightIntrinsics() const {
-            /*if (doesExist())
-                return end_vertex_.lock()->getIntrinsics();*/
+        const TIntrinsicsModel &getRightIntrinsics() const {
             return this->getFinishVertex().getIntrinsics();
         }
 
         const Sophus::SO3d &getRelativeRotation() const {
-            /*if (doesExist())
-                return st_vertex_.lock()->getRotation();*/
             return relativeRotation_;
         }
 
 
         const Eigen::Vector3d &getRelativeTranslation() const {
-            /*if (doesExist())
-                return st_vertex_.lock()->getRotation();*/
             return relativeTranslation_;
         }
 
         const Sophus::SO3d &getLeftAbsoluteRotation() const {
-            /*if (doesExist())
-                return st_vertex_.lock()->getRotation();*/
             return this->getStartVertex().getRotation();
         }
 
         const Sophus::SO3d &getRightAbsoluteRotation() const {
-            /*if (doesExist())
-                return end_vertex_.lock()->getRotation();*/
             return this->getFinishVertex().getRotation();
         }
 
         const Eigen::Vector3d &getLeftAbsoluteTranslation() const {
-            /*if (doesExist())
-                return st_vertex_.lock()->getTranslation();*/
             return this->getStartVertex().getTranslation();
         }
 
         const Eigen::Vector3d &getRightAbsoluteTranslation() const {
-            /*if (doesExist())
-                return end_vertex_.lock()->getTranslation();*/
             return this->getFinishVertex().getTranslation();
         }
-
 
     };
 

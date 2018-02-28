@@ -9,6 +9,10 @@
 #include "IEdge.h"
 
 namespace graph {
+    /**
+     * @brief Base class for graph structure
+     * @tparam TDerived --- CRTP
+     */
     template <typename TDerived>
     struct IGraph
     {

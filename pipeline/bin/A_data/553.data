@@ -1,0 +1,10 @@
+Left keypoints: /home/danielbord/CLionProjects/AutomaticSolver/pipeline/points_correspondence/A/points_553_554_left
+Right keypoints: /home/danielbord/CLionProjects/AutomaticSolver/pipeline/points_correspondence/A/points_553_554_right
+Left intrinsics:/home/danielbord/CLionProjects/camera_calibration/pipeline/bin/A_data/553_intrinsics
+Right intrinsics:/home/danielbord/CLionProjects/camera_calibration/pipeline/bin/A_data/554_intrinsics
+Left extrinsics:/home/danielbord/CLionProjects/camera_calibration/pipeline/bin/A_data/553_extrinsics
+Right extrinsics:/home/danielbord/CLionProjects/camera_calibration/pipeline/bin/A_data/554_extrinsics
+Fundamental matrix:/home/danielbord/CLionProjects/camera_calibration/pipeline/bin/A_data/553_554_fundamental_matrix
+Relative motion:/home/danielbord/CLionProjects/camera_calibration/pipeline/bin/A_data/553_554_relative_motion
+Left camera info:/home/danielbord/CLionProjects/camera_calibration/pipeline/bin/A_data/553_info
+Right camera info:/home/danielbord/CLionProjects/camera_calibration/pipeline/bin/A_data/554_info

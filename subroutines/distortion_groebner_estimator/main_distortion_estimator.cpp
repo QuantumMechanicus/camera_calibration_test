@@ -42,7 +42,6 @@ int main(int argc, char *argv[]) {
         return -2;
     }
 
-
     Eigen::Matrix3d fundamental_matrix;
     scene::TwoView<intrinsics::DivisionModelIntrinsic<>> stereo_pair;
     scene_serialization::SimpleSceneArchiver<scene_serialization::SimpleDivisionModelArchiver<>> archiver;

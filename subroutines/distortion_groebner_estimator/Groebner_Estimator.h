@@ -22,12 +22,9 @@ namespace estimators {
     };
 
     class GroebnerDivisionModelEstimator
-            : public estimators::AbstractEstimator<intrinsics::DivisionModelIntrinsic<1>>,
+            : public estimators::AbstractEstimator<Eigen::Matrix<double,1,1>>,
               public estimators::AbstractEstimator<scene::FundamentalMatrix> {
 
-        double ppx_;
-        double ppy_;
-        double f_;
         Eigen::Matrix<double, 1, 1> lambdas_;
         scene::FundamentalMatrix fundamental_matrix_;
         scene::ImagePoints u1d_, u2d_;
@@ -68,7 +65,7 @@ namespace estimators {
     protected:
         void estimateImpl() override;
 
-        void getEstimationImpl(intrinsics::DivisionModelIntrinsic<1> &result) override;
+        void getEstimationImpl(Eigen::Matrix<double,1,1> &result) override;
 
         void getEstimationImpl(scene::FundamentalMatrix &result) override;
 

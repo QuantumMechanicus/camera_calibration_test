@@ -32,27 +32,14 @@ namespace scene {
 
     protected:
 
-        void estimateLeftIntrinsicsImpl(std::shared_ptr<IntrinsicsModel> simple_estimator) {
-            //if (doesExist())
-            //st_vertex_.lock()->estimateIntrinsics(estimator);
-            this->ptr_to_list_of_vertices_->at(this->start_vertex_label_).estimate(simple_estimator);
-        }
-
-        void estimateRightIntrinsicsImpl(std::shared_ptr<IntrinsicsModel> simple_estimator) {
-            //if (doesExist())
-            //st_vertex_.lock()->estimateIntrinsics(estimator);
-            this->ptr_to_list_of_vertices_->at(this->end_vertex_label_).estimate(simple_estimator);
-        }
-
-
-        void estimateLeftIntrinsicsImpl(estimators::AbstractEstimator<IntrinsicsModel> &estimator) {
-            //if (doesExist())
-            //st_vertex_.lock()->estimateIntrinsics(estimator);
+        template <typename TEstimator>
+        void estimateLeftIntrinsicsImpl(TEstimator &estimator)
+        {
             this->ptr_to_list_of_vertices_->at(this->start_vertex_label_).estimate(estimator);
         }
 
-
-        void estimateRightIntrinsicsImpl(estimators::AbstractEstimator<IntrinsicsModel> &estimator) {
+        template <typename TEstimator>
+        void estimateRightIntrinsicsImpl(TEstimator &estimator) {
             //if (doesExist())
             //end_vertex_.lock()->estimateIntrinsics(estimator);
             this->ptr_to_list_of_vertices_->at(this->end_vertex_label_).estimate(estimator);

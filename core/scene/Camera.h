@@ -96,17 +96,13 @@ namespace scene {
          * @param estimator Instance of intrinsic estimator
          */
 
-        void estimateImpl(estimators::AbstractEstimator<IntrinsicsModel> &estimator) {
+        template <typename TEstimator>
+        void estimateImpl(TEstimator &estimator) {
             intrinsics_->estimateParameter(estimator);
         }
 
         void estimateImpl(estimators::AbstractEstimator<Sophus::SO3d> &estimator) {
             world_rotation_ = estimator.getEstimation();
-        }
-
-        void estimateImpl(IntrinsicsModel simple_estimator)
-        {
-            intrinsics_->estimateParameter(simple_estimator);
         }
 
         void estimateImpl(std::shared_ptr<IntrinsicsModel> simple_estimator)

@@ -51,9 +51,6 @@ namespace estimators {
 
     void GroebnerDivisionModelEstimator::estimateImpl() {
         is_estimated_ = true;
-        ppx_ = 0;
-        ppy_ = 0;
-        f_ = 0;
         fundamental_matrix_.setZero();
         lambdas_.setZero();
         double min_quantile = std::numeric_limits<double>::max();
@@ -114,8 +111,8 @@ namespace estimators {
         std::cout << min_quantile << " " << lambdas_(0) << std::endl;
     }
 
-    void GroebnerDivisionModelEstimator::getEstimationImpl(intrinsics::DivisionModelIntrinsic<1> &result) {
-        result = intrinsics::DivisionModelIntrinsic<1>(lambdas_, 0, 0, f_, ppx_, ppy_);
+    void GroebnerDivisionModelEstimator::getEstimationImpl(Eigen::Matrix<double,1,1> &result) {
+        result = lambdas_;
     }
 
     void GroebnerDivisionModelEstimator::getEstimationImpl(scene::FundamentalMatrix &result) {

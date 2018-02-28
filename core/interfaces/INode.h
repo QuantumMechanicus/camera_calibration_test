@@ -14,7 +14,7 @@ namespace graph {
 
         TLabel getLabel() const
         {
-            static_cast<const TDerived*>(this)->getLabelImpl();
+            return static_cast<const TDerived*>(this)->getLabelImpl();
         }
 
         using NodeLabel_t = TLabel;

@@ -173,5 +173,9 @@ namespace scene {
 
     };
 
+    using DynamicDivisionModelCamera = Camera<intrinsics::DynamicDivisionModel >;
+    using StandartDivisionModelCamera = Camera<intrinsics::StandardDivisionModel>;
+    using PinholeCamera = Camera<intrinsics::PinholeModel >;
+
 }
 #endif //CAMERA_CALIBRATION_CAMERA_H

@@ -1,0 +1,2 @@
+add_executable(focal_estimator main_focal_estimator.cpp Focal_Estimator.h Focal_Estimator.cpp)
+target_link_libraries(focal_estimator core)

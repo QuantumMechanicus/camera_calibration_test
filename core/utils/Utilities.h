@@ -119,6 +119,19 @@ namespace utils {
 
     }
 
+    template<typename T>
+    auto solvePoly(Eigen::Matrix<T, Eigen::Dynamic, 1> &coefficients) {
+        auto deg = coefficients.size() - 1;
+        coefficients /= coefficients[deg];
+        Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> companion(deg, deg);
+        companion.setZero();
+        companion.col(deg - 1) = -1 * coefficients.topRows(deg);
+        companion.block(1, 0, deg - 1, deg - 1).setIdentity();
+
+        return companion.eigenvalues();
+    }
+
+
     namespace distortion_problem {
 
         double estimateQuantile(std::vector<double> errors,
@@ -190,7 +203,7 @@ namespace utils {
         }
 
         template<typename T>
-        T solvePoly(const Eigen::Matrix<T, Eigen::Dynamic, 1> &distortion_coefficients, T r) {
+        T findDistortedRadius(const Eigen::Matrix<T, Eigen::Dynamic, 1> &distortion_coefficients, T r) {
 
             auto deg = 2 * distortion_coefficients.size();
             Eigen::Matrix<T, Eigen::Dynamic, 1> coeff = Eigen::Matrix<T, Eigen::Dynamic, 1>::Zero(deg + 1);
@@ -204,13 +217,8 @@ namespace utils {
 
             T rd = std::numeric_limits<T>::max();
 
-            Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> companion(deg, deg);
-            companion.setZero();
-            companion.col(deg - 1) = -1 * coeff.topRows(deg);
-            companion.block(1, 0, deg - 1, deg - 1).setIdentity();
 
-
-            auto eigenvalues = companion.eigenvalues();
+            auto eigenvalues = solvePoly<T>(coeff);
             for (size_t j = 0; j < eigenvalues.rows(); ++j) {
                 T real = eigenvalues[j].real();
                 T imag = eigenvalues[j].imag();
@@ -247,7 +255,8 @@ namespace utils {
                            const Eigen::Matrix<T, Eigen::Dynamic, 1> &distortion_coefficients,
                            const scene::TFundamentalMatrix<T> &fundamental_matrix, std::vector<T> &left_residuals,
                            std::vector<T> &right_residuals, T image_r = T(1.0)) {
-            assert(u1d.cols() == u2d.cols() && u1d.cols() > 0 && "Numbers of left and right keypoints should be equal and more than 0");
+            assert(u1d.cols() == u2d.cols() && u1d.cols() > 0 &&
+                   "Numbers of left and right keypoints should be equal and more than 0");
             auto number_of_points = static_cast<size_t>(u1d.cols());
             left_residuals.resize(number_of_points, T(std::numeric_limits<double>::max()));
             right_residuals.resize(number_of_points, T(std::numeric_limits<double>::max()));
@@ -257,8 +266,8 @@ namespace utils {
                 T left_residual, right_residual;
                 bool is_correct = cost(u1d.col(k), u2d.col(k), fundamental_matrix,
                                        distortion_coefficients, left_residual, right_residual);
-                left_residuals[k] = image_r*left_residual;
-                right_residuals[k] = image_r*right_residual;
+                left_residuals[k] = image_r * left_residual;
+                right_residuals[k] = image_r * right_residual;
             }
         }
 

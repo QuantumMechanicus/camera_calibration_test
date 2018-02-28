@@ -16,21 +16,23 @@ namespace intrinsics {
  * @brief Intrinsic parameters of division model for radial distortion (see A. W. Fitzgibbon "Simultaneous linear estimation of multiple view geometry and lens distortion")
  * \f$ x_u = \frac{x_d}{1 + \lambda_1 ||x_d||^2 + ... \lambda_N ||x_d||^{2N}} \f$
  */
+    using FocalLength = double;
+
     template<int N = 1>
-    class DivisionModelIntrinsic : public AbstractIntrinsics<DivisionModelIntrinsic<N>> {
+    class DivisionModel : public AbstractIntrinsics<DivisionModel<N>> {
         double ppx_{};
         double ppy_{};
         double f_{};
         Eigen::Matrix<double, N, 1> lambdas_;
 
-        friend class AbstractIntrinsics<DivisionModelIntrinsic<N>>;
+        friend class AbstractIntrinsics<DivisionModel<N>>;
 
     protected:
         /**
          * @brief See definition above
          */
-        bool isEqualImpl(const AbstractIntrinsics<DivisionModelIntrinsic<N>> &other) const {
-            const auto *other_casted = dynamic_cast<const DivisionModelIntrinsic<N> *>(&other);
+        bool isEqualImpl(const AbstractIntrinsics<DivisionModel<N>> &other) const {
+            const auto *other_casted = dynamic_cast<const DivisionModel<N> *>(&other);
             return other_casted != nullptr && ppx_ == other_casted->getPrincipalPointX() &&
                    ppy_ == other_casted->getPrincipalPointY() &&
                    f_ == other_casted->getFocalLength() &&
@@ -42,12 +44,12 @@ namespace intrinsics {
        * @param Class with 'estimate' principal point, focal length and distortion coefficients
        */
 
-        void estimateParameterImpl(estimators::AbstractEstimator<DivisionModelIntrinsic<N>> &estimator) {
+        void estimateParameterImpl(estimators::AbstractEstimator<DivisionModel<N>> &estimator) {
 
-            *this = std::move(estimator.getEstimation());
+            *this = estimator.getEstimation();
         }
 
-        void estimateParameterImpl(DivisionModelIntrinsic<N> estimator) {
+        void estimateParameterImpl(DivisionModel<N> estimator) {
 
             *this = std::move(estimator);
         }
@@ -57,11 +59,17 @@ namespace intrinsics {
             lambdas_ = estimator.getEstimation();
         }
 
+        void estimateParameterImpl(estimators::AbstractEstimator<FocalLength> &estimator) {
+
+            f_ = estimator.getEstimation();
+        }
+
     public:
+
         /**
          * @brief Constructor
          */
-        DivisionModelIntrinsic() = default;
+        DivisionModel() = default;
 
         /**
          * @brief Constructor
@@ -70,11 +78,11 @@ namespace intrinsics {
          * @param f Focal length
          * @param lambdas Parameters of division model
          */
-        explicit DivisionModelIntrinsic(const Eigen::Matrix<double, N, 1> &lambdas, unsigned int w = 0,
+        explicit DivisionModel(const Eigen::Matrix<double, N, 1> &lambdas, unsigned int w = 0,
                                         unsigned int h = 0,
                                         double f = 0, double ppx = 0,
                                         double ppy = 0)
-                : AbstractIntrinsics<DivisionModelIntrinsic>(w, h), ppx_(ppx),
+                : AbstractIntrinsics<DivisionModel>(w, h), ppx_(ppx),
                   ppy_(ppy),
                   f_(f),
                   lambdas_(lambdas) {}
@@ -87,11 +95,11 @@ namespace intrinsics {
          * @param lambdas Parameters of division model
          * @param n Number of distortion coefficients (lambdas)
          */
-        explicit DivisionModelIntrinsic(unsigned int n, const Eigen::Matrix<double, N, 1> &lambdas, unsigned int w = 0,
+        explicit DivisionModel(unsigned int n, const Eigen::Matrix<double, N, 1> &lambdas, unsigned int w = 0,
                                         unsigned int h = 0,
                                         double f = 0, double ppx = 0,
                                         double ppy = 0)
-                : AbstractIntrinsics<DivisionModelIntrinsic>(w, h), ppx_(ppx),
+                : AbstractIntrinsics<DivisionModel>(w, h), ppx_(ppx),
                   ppy_(ppy),
                   f_(f),
                   lambdas_(lambdas) {}
@@ -102,8 +110,8 @@ namespace intrinsics {
          * @param ppy Y-axis coordinate of principal point
          * @param f Focal length
          */
-        DivisionModelIntrinsic(unsigned int w, unsigned int h, double f = 0, double ppx = 0,
-                               double ppy = 0) : AbstractIntrinsics<DivisionModelIntrinsic>(w, h), ppx_(ppx), ppy_(ppy),
+        DivisionModel(unsigned int w, unsigned int h, double f = 0, double ppx = 0,
+                               double ppy = 0) : AbstractIntrinsics<DivisionModel>(w, h), ppx_(ppx), ppy_(ppy),
                                                  f_(f) {
             assert(N != Eigen::Dynamic && "You should pass number of parameters for dynamic model");
             lambdas_.setZero();
@@ -116,8 +124,8 @@ namespace intrinsics {
          * @param f Focal length
          * @param n Number of distortion coefficients (lambdas)
          */
-        DivisionModelIntrinsic(unsigned int n, unsigned int w, unsigned int h, double f = 0, double ppx = 0,
-                               double ppy = 0) : AbstractIntrinsics<DivisionModelIntrinsic>(w, h), ppx_(ppx), ppy_(ppy),
+        DivisionModel(unsigned int n, unsigned int w, unsigned int h, double f = 0, double ppx = 0,
+                               double ppy = 0) : AbstractIntrinsics<DivisionModel>(w, h), ppx_(ppx), ppy_(ppy),
                                                  f_(f) {
             lambdas_.resize(n, Eigen::NoChange);
             lambdas_.setZero();
@@ -163,6 +171,12 @@ namespace intrinsics {
             return static_cast<int>(lambdas_.rows());
         }
 
+        double getAngeleOfView() const
+        {
+            auto r = std::sqrt(this->w_*this->w_ + this->h_*this->h_)/2;
+            return 2*std::atan(r/f_)*180.0/M_PI;
+        }
+
         /**
          * @param new_size
          */
@@ -175,9 +189,11 @@ namespace intrinsics {
         }
     };
 
-    using PinholeIntrinsic = DivisionModelIntrinsic<0>;
+    using PinholeModel = DivisionModel<0>;
 
-    using StandardDivisionModelIntrinsic = DivisionModelIntrinsic<1>;
+    using StandardDivisionModel = DivisionModel<1>;
+
+    using DynamicDivisionModel = DivisionModel<Eigen::Dynamic>;
 
 }
 #endif //CAMERA_CALIBRATION_CAMERA_INTRINSICS_H

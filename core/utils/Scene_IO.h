@@ -188,8 +188,8 @@ namespace scene_serialization {
         bool overwrite_info_;
 
     public:
-        using Camera_t = scene::Camera<intrinsics::DivisionModelIntrinsic<N>, TInfo>;
-        using Model_t =  intrinsics::DivisionModelIntrinsic<N>;
+        using Camera_t = scene::Camera<intrinsics::DivisionModel<N>, TInfo>;
+        using Model_t =  intrinsics::DivisionModel<N>;
         using Label_t = TInfo;
 
 
@@ -206,7 +206,7 @@ namespace scene_serialization {
                   absolute_motion_file_name_(std::move(absolute_motion_file_name)) {}
 
 
-        void serialize(const scene::Camera<intrinsics::DivisionModelIntrinsic<N>, TInfo> &camera) const {
+        void serialize(const scene::Camera<intrinsics::DivisionModel<N>, TInfo> &camera) const {
             auto intrinsics_ptr = camera.getIntrinsicsPointer();
             Eigen::VectorXd vector_of_parameters(intrinsics_ptr->getNumberOfCoefficients() + 5);
             vector_of_parameters.head(
@@ -220,8 +220,8 @@ namespace scene_serialization {
 
         }
 
-        void deserialize(scene::Camera<intrinsics::DivisionModelIntrinsic<N>, TInfo> &camera) {
-            intrinsics::DivisionModelIntrinsic<N> intrinsics;
+        void deserialize(scene::Camera<intrinsics::DivisionModel<N>, TInfo> &camera) {
+            intrinsics::DivisionModel<N> intrinsics;
             Eigen::VectorXd vector_of_parameters;
             utils::loadMatrix(intrinsics_parameters_file_name_, vector_of_parameters);
             if (vector_of_parameters.size() >= 5) {
@@ -234,11 +234,11 @@ namespace scene_serialization {
                 ppx = vector_of_parameters[vector_of_parameters.size() - 4];
                 f = vector_of_parameters[vector_of_parameters.size() - 5];
                 if (N != Eigen::Dynamic) {
-                    intrinsics = intrinsics::DivisionModelIntrinsic<N>(distortion_coefficients_dynamic.head(N),
+                    intrinsics = intrinsics::DivisionModel<N>(distortion_coefficients_dynamic.head(N),
                                                                        static_cast<unsigned int>(w),
                                                                        static_cast<unsigned int>(h), f, ppx, ppy);
                 } else
-                    intrinsics = intrinsics::DivisionModelIntrinsic<N>(distortion_coefficients_dynamic,
+                    intrinsics = intrinsics::DivisionModel<N>(distortion_coefficients_dynamic,
                                                                        static_cast<unsigned int>(w),
                                                                        static_cast<unsigned int>(h), f, ppx, ppy);
 
@@ -257,12 +257,15 @@ namespace scene_serialization {
             utils::loadMatrix(absolute_motion_file_name_, motion_matrix);
             if (!motion_matrix.isZero())
                 motion = Sophus::SE3d::fitToSE3(motion_matrix);
-            camera = scene::Camera<intrinsics::DivisionModelIntrinsic<N>, TInfo>(label, intrinsics,
+            camera = scene::Camera<intrinsics::DivisionModel<N>, TInfo>(label, intrinsics,
                                                                                  motion.rotationMatrix(),
                                                                                  motion.translation());
 
         }
     };
+
+    using StandartSceneArchiver = SimpleSceneArchiver<SimpleDivisionModelArchiver<>>;
+    using DynamicSceneArchiver = SimpleSceneArchiver<SimpleDivisionModelArchiver<Eigen::Dynamic>>;
 
 }
 #endif //CAMERA_CALIBRATION_SCENE_IO_H

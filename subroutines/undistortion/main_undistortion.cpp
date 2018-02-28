@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
                 double ii = ((i - cols / 2.0) / r_img) / alpha;
                 double jj = ((j - rows / 2.0) / r_img) / alpha;
                 double r = std::sqrt(ii * ii + jj * jj + 1e-7);
-                double rd = utils::distortion_problem::solvePoly(lambdas, r);
+                double rd = utils::distortion_problem::findDistortedRadius(lambdas, r);
                 auto dd = utils::distortion_problem::undistortionDenominator<double>(rd, lambdas.cast<double>());
                 map_x(j, i) = r_img * ii * dd + cols / 2.0;
                 map_y(j, i) = r_img * jj * dd + rows / 2.0;

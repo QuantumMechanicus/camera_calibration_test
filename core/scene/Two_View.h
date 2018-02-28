@@ -25,7 +25,7 @@ namespace scene {
         ImagePoints left_keypoints_{};
         ImagePoints right_keypoints_{};
         FundamentalMatrix bifocal_tensor_{};
-
+        //TODO add recompute f_matrix
         long number_of_points_{};
 
     protected:
@@ -218,5 +218,7 @@ namespace scene {
 
     };
 
+    using StandartDivisionModelStereoPair = TwoView<intrinsics::StandardDivisionModel>;
+    using DynamicDivisionModelStereoPair = TwoView<intrinsics::DynamicDivisionModel>;
 }
 #endif //CAMERA_CALIBRATION_TWO_VIEW_H

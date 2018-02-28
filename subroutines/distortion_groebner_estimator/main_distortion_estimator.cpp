@@ -43,8 +43,8 @@ int main(int argc, char *argv[]) {
     }
 
     Eigen::Matrix3d fundamental_matrix;
-    scene::TwoView<intrinsics::DivisionModelIntrinsic<>> stereo_pair;
-    scene_serialization::SimpleSceneArchiver<scene_serialization::SimpleDivisionModelArchiver<>> archiver;
+    scene::StandartDivisionModelStereoPair stereo_pair;
+    scene_serialization::StandartSceneArchiver archiver;
     archiver.parse(f_info);
     stereo_pair.loadScene(archiver);
     double w =

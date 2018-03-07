@@ -174,6 +174,8 @@ namespace intrinsics {
         Eigen::Matrix3d getCalibrationMatrix() const
         {
             Eigen::Matrix3d res(Eigen::Matrix3d::Identity());
+            //TODO change remove r
+            auto r = std::sqrt(this->w_*this->w_ + this->h_*this->h_)/2;
             res(0, 0) = res(1, 1) = f_;
             res(0, 2) = ppx_;
             res(1, 2) = ppy_;
@@ -182,8 +184,8 @@ namespace intrinsics {
 
         double getAngeleOfView() const
         {
-            auto r = std::sqrt(this->w_*this->w_ + this->h_*this->h_)/2;
-            return 2*std::atan(r/f_)*180.0/M_PI;
+
+            return 2*std::atan(1/f_)*180.0/M_PI;
         }
 
         /**

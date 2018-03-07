@@ -39,16 +39,17 @@ namespace non_linear_optimization {
             using Matrix3T = Eigen::Matrix<T, 3, 3>;
             using VectorNL = Eigen::Matrix<T, Eigen::Dynamic, 1>;
 
+           
 
             VectorNL lambdas = Eigen::Map<const VectorNL>(lambda_ptr, number_of_distortion_coefficients_);
-            bool is_invertible = utils::distortion_problem::checkUndistortionInvertibility<T>(lambdas);
+            /*bool is_invertible = utils::distortion_problem::checkUndistortionInvertibility<T>(lambdas);
             if (!is_invertible)
-                return false;
+                return false;*/
 
             scene::TImagePoint<T> left_point_T = left_point_.topRows(2).cast<T>();
             scene::TImagePoint<T> right_point_T = right_point_.topRows(2).cast<T>();
 
-            const Eigen::Map<const Matrix3T> rotation(rotation_ptr);
+            const Eigen::Map<const Sophus::SO3<T>> rotation(rotation_ptr);
             const Eigen::Map<const Eigen::Matrix<T, 3, 1>> translation(translation_ptr);
             Matrix3T translation_matrix = utils::screw_hat<T>(translation);
             Matrix3T calibration_matrix;
@@ -58,7 +59,7 @@ namespace non_linear_optimization {
             calibration_matrix(1, 2) = principal_point_ptr[1];
 
             Matrix3T fundamental_matrix =
-                    calibration_matrix.transpose().inverse() * translation_matrix * rotation *
+                    calibration_matrix.transpose().inverse() * translation_matrix * rotation.matrix() *
                     calibration_matrix.inverse();
 
 
@@ -98,7 +99,7 @@ namespace non_linear_optimization {
             : public estimators::AbstractEstimator<Eigen::RowVectorXd>,
               public estimators::AbstractEstimator<scene::FundamentalMatrices> {
 
-        scene::StdVector<Eigen::Matrix3d> rotation_matrices_;
+        scene::StdVector<Sophus::SO3d> rotations_;
         scene::StdVector<Eigen::Vector3d> translations_;
         scene::FundamentalMatrices fundamental_matrices_;
         double focal_length_;
@@ -122,7 +123,7 @@ namespace non_linear_optimization {
         GlobalNonLinearEstimator(scene::StdVector<scene::ImagePoints> left_pictures_keypoints,
                                  scene::StdVector<scene::ImagePoints> right_pictures_keypoints,
                                  Eigen::RowVectorXd lambdas,
-                                 scene::StdVector<Eigen::Matrix3d> rotation_matrices,
+                                 scene::StdVector<Sophus::SO3d> rotations,
                                  scene::StdVector<Eigen::Vector3d> translations,
                                  double focal_length, double ppx, double ppy, GlobalNonLinearEstimatorOptions options = GlobalNonLinearEstimatorOptions());
 

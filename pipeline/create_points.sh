@@ -4,7 +4,7 @@
 
 camera_name=A
 dir=/home/danielbord/CLionProjects/AutomaticSolver/pipeline/points_correspondence/${camera_name}
-out_dir=/home/danielbord/CLionProjects/camera_calibration/pipeline/bin/${camera_name}_data/
+out_dir=/home/danielbord/CLionProjects/camcalbr/pipeline/bin/${camera_name}_data/
 keypoints_left=${out_dir}path.keypoints.left
 keypoints_right=${out_dir}path.keypoints.right
 intr_left=${out_dir}path.left.intrinsics

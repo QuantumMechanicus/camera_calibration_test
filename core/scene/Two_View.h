@@ -183,10 +183,20 @@ namespace scene {
             return bifocal_tensor_;
         }
 
-        const FundamentalMatrix &getEssentialMatrix() const {
+        const FundamentalMatrix getEssentialMatrix() {
             auto left_K = getLeftIntrinsicsPointer()->getCalibrationMatrix();
             auto right_K = getRightIntrinsicsPointer()->getCalibrationMatrix();
 
+            /*Eigen::JacobiSVD<Eigen::Matrix3d> fmatrix_svd(bifocal_tensor_,
+                                                          Eigen::ComputeFullU | Eigen::ComputeFullV);
+            Eigen::Vector3d singular_values = fmatrix_svd.singularValues();
+            singular_values[2] = 0.0;
+
+            bifocal_tensor_= fmatrix_svd.matrixU() * singular_values.asDiagonal() *
+                                     fmatrix_svd.matrixV().transpose();
+            bifocal_tensor_ /= bifocal_tensor_(2, 2);
+            std::cout << "K1: \n" << left_K << std::endl;
+            std::cout << "K2: \n" << right_K << std::endl;*/
             return right_K.transpose() * bifocal_tensor_ * left_K;
         }
 
@@ -194,24 +204,33 @@ namespace scene {
 
 
             Eigen::Matrix3d matrix_D;
-            Eigen::Matrix3d matrix_H;
+
             matrix_D.setZero();
-            matrix_H.setZero();
+
             Eigen::Matrix3d essential_matrix(getEssentialMatrix());
 
-            essential_matrix /= essential_matrix.norm();
+            //essential_matrix.normalize();
 
-            matrix_D(0, 1) = -1;
-            matrix_D(1, 0) = 1;
+            matrix_D(0, 1) = 1;
+            matrix_D(1, 0) = -1;
             matrix_D(2, 2) = 1;
-
-            matrix_H(0, 0) = 1;
-            matrix_H(1, 1) = 1;
+            std::cout << (essential_matrix * essential_matrix.transpose() * essential_matrix
+                          - 0.5 * (essential_matrix * essential_matrix.transpose()).trace() * essential_matrix).norm() /
+                         std::pow(essential_matrix.norm(), 3) << std::endl;
 
             Eigen::JacobiSVD<Eigen::Matrix3d> svd(essential_matrix, Eigen::ComputeFullU | Eigen::ComputeFullV);
             Eigen::Matrix3d matrixU = svd.matrixU();
             Eigen::Matrix3d matrixV = svd.matrixV();
-
+            Eigen::Matrix3d singVal = svd.singularValues().asDiagonal();
+            singVal(0, 0) = singVal(1, 1) = 1;
+            singVal(2, 2) = 0;
+            Eigen::Matrix3d original_E = essential_matrix;
+            essential_matrix = matrixU * singVal * matrixV.transpose();
+            std::cout << (essential_matrix * essential_matrix.transpose() * essential_matrix
+                          - 0.5 * (essential_matrix * essential_matrix.transpose()).trace() * essential_matrix).norm() /
+                         std::pow(essential_matrix.norm(), 3) << std::endl;
+            //std::cout << svd.singularValues().transpose() << std::endl;
+            // std::cout << essential_matrix - (matrixU*svd.singularValues().asDiagonal()*matrixV.transpose()).normalized() << std::endl;
             if (matrixU.determinant() < 0)
                 matrixU = -matrixU;
             if (matrixV.determinant() < 0)
@@ -219,13 +238,9 @@ namespace scene {
 
             Eigen::Matrix3d rotation_matrix = Eigen::Matrix3d::Zero();
             Eigen::Matrix3d translation_matrix = Eigen::Matrix3d::Zero();
-
-            translation_matrix(0, 1) = -matrixU(2, 2);
-            translation_matrix(0, 2) = matrixU(1, 2);
-            translation_matrix(1, 0) = matrixU(2, 2);
-            translation_matrix(2, 0) = -matrixU(1, 2);
-            translation_matrix(1, 2) = -matrixU(0, 2);
-            translation_matrix(2, 1) = matrixU(0, 2);
+            Eigen::Vector3d translation_vector = matrixU.col(2);
+            //translation_vector.normalize();
+            translation_matrix = utils::screw_hat(translation_vector);
 
             Eigen::Matrix3d current_rotation = Eigen::Matrix3d::Zero();
             Eigen::Matrix3d current_translation = translation_matrix;
@@ -252,6 +267,16 @@ namespace scene {
                     default:
                         break;
                 }
+                std::cout << std::min((essential_matrix.normalized() - (current_translation *
+                                                                           current_rotation).normalized()).norm()
+                        , (essential_matrix.normalized() + (current_translation *
+                                                            current_rotation).normalized()).norm())
+                          << " check" << std::endl;
+                std::cout << std::min((original_E.normalized() - (current_translation *
+                                                               current_rotation).normalized()).norm(),
+                                      (original_E.normalized() + (current_translation *
+                                                                  current_rotation).normalized()).norm())
+                          << " check_OE" << std::endl;
                 for (size_t kth_point = 0; kth_point < number_of_points_; ++kth_point) {
                     if (chiralityTest(current_rotation, current_translation, kth_point))
                         counter++;
@@ -261,7 +286,8 @@ namespace scene {
                     translation_matrix = current_translation;
                 }
             }
-
+            relativeRotation_ = Sophus::SO3d(rotation_matrix);
+            relativeTranslation_ = utils::inverted_screw_hat(translation_matrix);
 
         }
 
@@ -304,6 +330,10 @@ namespace scene {
 
         const Eigen::Vector3d &getRightAbsoluteTranslation() const {
             return this->getFinishVertex().getTranslation();
+        }
+
+        long getNumberOfPoints() const {
+            return number_of_points_;
         }
 
     };

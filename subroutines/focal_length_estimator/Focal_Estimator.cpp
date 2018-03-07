@@ -67,8 +67,7 @@ void estimators::SimpleFocalEstimator::estimateImpl() {
         }
 
     }
-    auto radius = std::sqrt(w_ * w_ + h_ * h_);
-    f_ = radius*f;
+    f_ = f;
 }
 
 void estimators::SimpleFocalEstimator::getEstimationImpl(intrinsics::FocalLength &result) {

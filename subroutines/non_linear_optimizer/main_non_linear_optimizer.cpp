@@ -88,8 +88,9 @@ int main(int argc, char *argv[]) {
     mean_ppy /= number_of_pairs;
     mean_f /= number_of_pairs;
     Eigen::RowVectorXd distortion_coefficients(number_of_distortion_coefficients);
-    distortion_coefficients.setZero();
+    distortion_coefficients.setConstant(0);
     distortion_coefficients[0] = mean_distortion_coefficient;
+
     std::shared_ptr<intrinsics::DynamicDivisionModel> common_intrinsics_parameters = std::make_shared<intrinsics::DynamicDivisionModel>(
             distortion_coefficients,
             w, h, mean_f, mean_ppx, mean_ppy);

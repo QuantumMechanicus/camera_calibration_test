@@ -277,25 +277,32 @@ namespace utils {
 
         template<typename T>
         T findDistortedRadius(const Eigen::Matrix<T, Eigen::Dynamic, 1> &distortion_coefficients, T r) {
-
-            auto deg = 2 * distortion_coefficients.size();
+            Eigen::Matrix<T, Eigen::Dynamic, 1> checked_distortion_coefficients;
+            int count_until_non_zero = static_cast<int>(distortion_coefficients.size() - 1);
+            while (count_until_non_zero > 0 && ceres::abs(distortion_coefficients[count_until_non_zero]) < T(1e-9)) {
+                --count_until_non_zero;
+            }
+            //std::cout << distortion_coefficients << std::endl;
+            //std::cout << count_until_non_zero << std::endl;
+            checked_distortion_coefficients = distortion_coefficients.head(count_until_non_zero + 1);
+            auto deg = 2 * checked_distortion_coefficients.size();
             Eigen::Matrix<T, Eigen::Dynamic, 1> coeff = Eigen::Matrix<T, Eigen::Dynamic, 1>::Zero(deg + 1);
 
-            for (auto k = static_cast<size_t>(distortion_coefficients.size()); k > 0; --k)
-                coeff(2 * k, 0) = r * distortion_coefficients[k - 1];
+            for (auto k = static_cast<size_t>(checked_distortion_coefficients.size()); k > 0; --k)
+                coeff(2 * k, 0) = r * checked_distortion_coefficients[k - 1];
 
             coeff(1, 0) = T(-1);
             coeff(0, 0) = r;
             coeff /= coeff[deg];
 
-            T rd = std::numeric_limits<T>::max();
+            T rd = T(std::numeric_limits<double>::max());
 
 
             auto eigenvalues = solvePoly<T>(coeff);
             for (size_t j = 0; j < eigenvalues.rows(); ++j) {
                 T real = eigenvalues[j].real();
                 T imag = eigenvalues[j].imag();
-                if (ceres::abs(imag) < 1e-9 && real > T(0) && rd > real) {
+                if (ceres::abs(imag) < 1e-9 && real > T(1e-9) && rd > real) {
                     rd = real;
                 }
 
@@ -413,10 +420,11 @@ namespace utils {
                     }
                     return is_correct;
                 }
-                /*if (distortion_coefficients.rows() > 1) {
+                /*
+                if (distortion_coefficients.rows() > 1) {
 
-                    root_r1d_estimation = u1d.norm() - epsilon1;
-                    root_r2d_estimation = u2d.norm() - epsilon2;
+                    root_r1d_estimation = findDistortedRadius(distortion_coefficients, r1u);
+                    root_r2d_estimation = findDistortedRadius(distortion_coefficients, r2u);
                     if (root_r1d_estimation < T(0))
                         root_r1d_estimation += T(2) * epsilon1;
                     if (root_r2d_estimation < T(0))
@@ -444,7 +452,10 @@ namespace utils {
                 } else {
                     root_r1d_estimation = solveQuadric(distortion_coefficients(0), r1u);
                     root_r2d_estimation = solveQuadric(distortion_coefficients(0), r2u);
-
+                    std::cout << root_r1d_estimation  << std::endl;
+                    std::cout << findDistortedRadius(distortion_coefficients, r1u) << "!!\n" << std::endl;
+                    std::cout << root_r2d_estimation  << std::endl;
+                    std::cout << findDistortedRadius(distortion_coefficients, r2u) << "!!!\n" << std::endl;
                 }
 
                 if (root_r1d_estimation == T(std::numeric_limits<double>::max()) or

@@ -18,9 +18,10 @@ namespace non_linear_optimization {
 
 
         std::cout << "Iters: " << options_.number_of_non_linear_iters_ << std::endl;
+
         is_estimated_ = true;
         int residuals = 0;
-        long number_of_distortion_coefficients = lambdas_.rows();
+        long number_of_distortion_coefficients = lambdas_.cols();
         std::vector<bool> skip(number_of_pairs_, false);
         for (size_t iters = 0; iters < options_.number_of_non_linear_iters_; ++iters) {
             ceres::Problem problem;
@@ -82,7 +83,7 @@ namespace non_linear_optimization {
                 }
 
             }
-            std::cout << lambdas_.transpose() << " --- coefficients before estimation" << std::endl;
+            std::cout << lambdas_ << " --- coefficients before estimation" << std::endl;
             ceres::Solver::Options options;
             //options.max_trust_region_radius = 0.01;
             options.max_num_iterations = 500;
@@ -98,7 +99,7 @@ namespace non_linear_optimization {
             ceres::Solver::Summary summary;
             ceres::Solve(options, &problem, &summary);
             std::cout << summary.BriefReport() << std::endl;
-            std::cout << lambdas_.transpose() << " --- estimated coefficients" << std::endl;
+            std::cout << lambdas_ << " --- estimated coefficients" << std::endl;
 
         }
 

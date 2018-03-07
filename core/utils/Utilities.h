@@ -9,7 +9,9 @@
 #include <boost/math/special_functions/erf.hpp>
 #include <boost/filesystem.hpp>
 #include "ceres/ceres.h"
-#include "../scene/Two_View.h"
+#include "../scene/Camera.h"
+#include "Local_Parametrization_SO3.h"
+#include "Local_Parametrization_Sphere.h"
 
 namespace utils {
     static const double EPS = 1e-10;
@@ -125,12 +127,83 @@ namespace utils {
         coefficients /= coefficients[deg];
         Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> companion(deg, deg);
         companion.setZero();
-        companion.col(deg - 1) = -1 * coefficients.topRows(deg);
+        companion.col(deg - 1) = -T(1) * coefficients.topRows(deg);
         companion.block(1, 0, deg - 1, deg - 1).setIdentity();
 
         return companion.eigenvalues();
     }
 
+    template<typename Scalar>
+    Eigen::Matrix<Scalar, 3, 3> screw_hat(const Eigen::Matrix<Scalar, 3, 1> &t) {
+        Eigen::Matrix<Scalar, 3, 3> t_hat = Eigen::Matrix<Scalar, 3, 3>::Zero(3, 3);
+        t_hat << Scalar(0), -t(2), t(1),
+                t(2), Scalar(0), -t(0),
+                -t(1), t(0), Scalar(0);
+        return t_hat;
+    }
+
+    template<typename Scalar>
+    Eigen::Matrix<Scalar, 3, 1> inverted_screw_hat(const Eigen::Matrix<Scalar, 3, 3> &t_hat) {
+        Eigen::Matrix<Scalar, 3, 1> t;
+        t << t_hat(2, 1), t_hat(0, 2), t_hat(1, 0);
+        return t;
+    }
+
+
+    inline void triangulate(const Eigen::Matrix3d &bifocal_tensor,
+                            const Eigen::Matrix3d &rotation_matrix,
+                            const Eigen::Matrix3d &translation_matrix,
+                            const scene::HomogenousImagePoint &left_keypoint,
+                            const scene::HomogenousImagePoint &right_keypoint,
+                            scene::HomogenousWorldPoint &left_backprojected,
+                            scene::HomogenousWorldPoint &right_backprojected) {
+
+        Eigen::Matrix<double, 3, 4> projection_matrix;
+        Eigen::Vector3d translation_vector = utils::inverted_screw_hat(translation_matrix);
+        projection_matrix << rotation_matrix, translation_vector;
+        Eigen::Matrix3d matrixH = Eigen::Matrix3d::Zero();
+        matrixH(0, 0) = 1;
+        matrixH(1, 1) = 1;
+
+        Eigen::Vector3d a = bifocal_tensor.transpose() * right_keypoint;
+        Eigen::Vector3d h1 = matrixH * a;
+        Eigen::Vector3d h2 = matrixH * bifocal_tensor * left_keypoint;
+
+        Eigen::Vector3d b = left_keypoint.cross(h1);
+        Eigen::Vector3d c = right_keypoint.cross(h2);
+
+        a.normalize();
+        b.normalize();
+        Eigen::Vector3d d = a.cross(b);
+        d.normalize();
+
+        Eigen::Vector4d pC = (projection_matrix.transpose() * c);
+
+        left_backprojected[0] = pC[3] * d[0];
+        left_backprojected[1] = pC[3] * d[1];
+        left_backprojected[2] = pC[3] * d[2];
+        left_backprojected[3] = -d.cwiseProduct(pC.template block<3, 1>(0, 0)).sum();
+        Eigen::Vector3d pQ = projection_matrix * left_backprojected;
+        right_backprojected[0] = pQ[0];
+        right_backprojected[1] = pQ[1];
+        right_backprojected[2] = pQ[2];
+        right_backprojected[3] = 1;
+
+    }
+
+    inline bool
+    chiralityTest(const Eigen::Matrix3d &fundamental_matrix,
+                  const Eigen::Matrix3d &rotation_matrix,
+                  const Eigen::Matrix3d &translation_matrix,
+                  const scene::ImagePoint &left_keypoint, const scene::ImagePoint &right_keypoint) {
+        scene::HomogenousWorldPoint left_backprojected, right_backprojected;
+        triangulate(fundamental_matrix, rotation_matrix, translation_matrix, left_keypoint.homogeneous(),
+                    right_keypoint.homogeneous(),
+                    left_backprojected, right_backprojected);
+        bool c1 = left_backprojected[2] * left_backprojected[3] > 0;
+        bool c2 = right_backprojected[2] * left_backprojected[3] > 0;
+        return (c1 && c2);
+    }
 
     namespace distortion_problem {
 
@@ -211,7 +284,7 @@ namespace utils {
             for (auto k = static_cast<size_t>(distortion_coefficients.size()); k > 0; --k)
                 coeff(2 * k, 0) = r * distortion_coefficients[k - 1];
 
-            coeff(1, 0) = -1;
+            coeff(1, 0) = T(-1);
             coeff(0, 0) = r;
             coeff /= coeff[deg];
 
@@ -222,7 +295,7 @@ namespace utils {
             for (size_t j = 0; j < eigenvalues.rows(); ++j) {
                 T real = eigenvalues[j].real();
                 T imag = eigenvalues[j].imag();
-                if (ceres::abs(imag) < 1e-9 && real > 0 && rd > real) {
+                if (ceres::abs(imag) < 1e-9 && real > T(0) && rd > real) {
                     rd = real;
                 }
 
@@ -313,7 +386,34 @@ namespace utils {
                 T r1u = line_point1.norm();
                 T r2u = line_point2.norm();
                 //TODO try to change this to Eigen polynomial solver (need fix for std::Complex with Ceres::Jet)
-                if (distortion_coefficients.rows() > 1) {
+                //TODO fix when root_r1d_estimation is bad
+                root_r1d_estimation = findDistortedRadius(distortion_coefficients, r1u);
+                root_r2d_estimation = findDistortedRadius(distortion_coefficients, r2u);
+
+                if (root_r1d_estimation == T(std::numeric_limits<double>::max()) or
+                    root_r2d_estimation == T(std::numeric_limits<double>::max())) {
+                    left_residual = T(std::numeric_limits<double>::max());
+                    right_residual = T(std::numeric_limits<double>::max());
+                    is_correct = false;
+                    return is_correct;
+                } else {
+
+                    scene::TImagePoint<T> curve_point1 = distortion(line_point1, root_r1d_estimation,
+                                                                    distortion_coefficients);
+                    scene::TImagePoint<T> curve_point2 = distortion(line_point2, root_r2d_estimation,
+                                                                    distortion_coefficients);
+
+                    left_residual = (u1d - curve_point1).norm();
+                    right_residual = (u2d - curve_point2).norm();
+
+                    if (ceres::IsNaN(left_residual) or ceres::IsNaN(right_residual)) {
+                        left_residual = T(std::numeric_limits<double>::max());
+                        right_residual = T(std::numeric_limits<double>::max());
+                        is_correct = false;
+                    }
+                    return is_correct;
+                }
+                /*if (distortion_coefficients.rows() > 1) {
 
                     root_r1d_estimation = u1d.norm() - epsilon1;
                     root_r2d_estimation = u2d.norm() - epsilon2;
@@ -369,7 +469,7 @@ namespace utils {
                         is_correct = false;
                     }
                     return is_correct;
-                }
+                }*/
             }
         };
     }

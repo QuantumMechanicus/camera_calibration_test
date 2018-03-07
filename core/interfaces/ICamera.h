@@ -31,6 +31,10 @@ namespace scene {
 
     typedef Eigen::Matrix<double, 2, 1> ImagePoint;
 
+    typedef Eigen::Matrix<double, 3, 1> WorldPoint;
+
+    typedef Eigen::Matrix<double, 4, 1> HomogenousWorldPoint;
+
     typedef Eigen::Matrix<double, 3, 1> HomogenousImagePoint;
 
     typedef Eigen::Matrix<double, 2, Eigen::Dynamic> ImagePoints;

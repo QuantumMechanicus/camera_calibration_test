@@ -5,10 +5,9 @@
 #ifndef CAMERA_CALIBRATION_TWO_VIEW_H
 #define CAMERA_CALIBRATION_TWO_VIEW_H
 
-#include <utility>
-#include "Camera.h"
 #include "../interfaces/ITwo_View.h"
 #include "../interfaces/IEdge.h"
+#include "../utils/Utilities.h"
 
 namespace scene {
 
@@ -28,15 +27,24 @@ namespace scene {
         //TODO add recompute f_matrix
         long number_of_points_{};
 
+
+        inline bool
+        chiralityTest(const Eigen::Matrix3d &rotation_matrix,
+                      const Eigen::Matrix3d &translation_matrix,
+                      size_t keypoint_ind) {
+            return utils::chiralityTest(bifocal_tensor_, rotation_matrix, translation_matrix,
+                                        left_keypoints_.col(keypoint_ind),
+                                        right_keypoints_.col(keypoint_ind));
+        }
+
     protected:
 
-        template <typename TEstimator>
-        void estimateLeftCameraImpl(TEstimator &estimator)
-        {
+        template<typename TEstimator>
+        void estimateLeftCameraImpl(TEstimator &estimator) {
             this->ptr_to_list_of_vertices_->at(this->start_vertex_label_).estimate(estimator);
         }
 
-        template <typename TEstimator>
+        template<typename TEstimator>
         void estimateRightCameraImpl(TEstimator &estimator) {
             this->ptr_to_list_of_vertices_->at(this->end_vertex_label_).estimate(estimator);
         }
@@ -154,7 +162,7 @@ namespace scene {
 
         template<typename SceneArchiver>
         void loadScene(const SceneArchiver &serializator,
-        std::shared_ptr<VertexMap_t> ptr_to_list_of_vertices) {
+                       std::shared_ptr<VertexMap_t> ptr_to_list_of_vertices) {
             serializator.deserialize(*this, ptr_to_list_of_vertices);
         }
 
@@ -173,6 +181,88 @@ namespace scene {
 
         const FundamentalMatrix &getFundamentalMatrix() const {
             return bifocal_tensor_;
+        }
+
+        const FundamentalMatrix &getEssentialMatrix() const {
+            auto left_K = getLeftIntrinsicsPointer()->getCalibrationMatrix();
+            auto right_K = getRightIntrinsicsPointer()->getCalibrationMatrix();
+
+            return right_K.transpose() * bifocal_tensor_ * left_K;
+        }
+
+        void recoverRelativeMotion() {
+
+
+            Eigen::Matrix3d matrix_D;
+            Eigen::Matrix3d matrix_H;
+            matrix_D.setZero();
+            matrix_H.setZero();
+            Eigen::Matrix3d essential_matrix(getEssentialMatrix());
+
+            essential_matrix /= essential_matrix.norm();
+
+            matrix_D(0, 1) = -1;
+            matrix_D(1, 0) = 1;
+            matrix_D(2, 2) = 1;
+
+            matrix_H(0, 0) = 1;
+            matrix_H(1, 1) = 1;
+
+            Eigen::JacobiSVD<Eigen::Matrix3d> svd(essential_matrix, Eigen::ComputeFullU | Eigen::ComputeFullV);
+            Eigen::Matrix3d matrixU = svd.matrixU();
+            Eigen::Matrix3d matrixV = svd.matrixV();
+
+            if (matrixU.determinant() < 0)
+                matrixU = -matrixU;
+            if (matrixV.determinant() < 0)
+                matrixV = -matrixV;
+
+            Eigen::Matrix3d rotation_matrix = Eigen::Matrix3d::Zero();
+            Eigen::Matrix3d translation_matrix = Eigen::Matrix3d::Zero();
+
+            translation_matrix(0, 1) = -matrixU(2, 2);
+            translation_matrix(0, 2) = matrixU(1, 2);
+            translation_matrix(1, 0) = matrixU(2, 2);
+            translation_matrix(2, 0) = -matrixU(1, 2);
+            translation_matrix(1, 2) = -matrixU(0, 2);
+            translation_matrix(2, 1) = matrixU(0, 2);
+
+            Eigen::Matrix3d current_rotation = Eigen::Matrix3d::Zero();
+            Eigen::Matrix3d current_translation = translation_matrix;
+
+            int max_counter = 0;
+            for (std::size_t k = 0; k < 4; ++k) {
+                int counter = 0;
+                switch (k) {
+                    case 0:
+                        current_rotation = matrixU * matrix_D * matrixV.transpose();
+                        break;
+                    case 1:
+                        current_rotation = matrixU * matrix_D * matrixV.transpose();
+                        current_translation.transposeInPlace();
+                        break;
+                    case 2:
+                        current_rotation = matrixU * matrix_D.transpose() * matrixV.transpose();
+                        current_translation.transposeInPlace();
+                        break;
+                    case 3:
+                        current_rotation = matrixU * matrix_D.transpose() * matrixV.transpose();
+                        current_translation.transposeInPlace();
+                        break;
+                    default:
+                        break;
+                }
+                for (size_t kth_point = 0; kth_point < number_of_points_; ++kth_point) {
+                    if (chiralityTest(current_rotation, current_translation, kth_point))
+                        counter++;
+                }
+                if (counter > max_counter) {
+                    rotation_matrix = current_rotation;
+                    translation_matrix = current_translation;
+                }
+            }
+
+
         }
 
         const std::shared_ptr<TIntrinsicsModel> getLeftIntrinsicsPointer() const {

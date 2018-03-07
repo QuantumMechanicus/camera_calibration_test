@@ -171,6 +171,15 @@ namespace intrinsics {
             return static_cast<int>(lambdas_.rows());
         }
 
+        Eigen::Matrix3d getCalibrationMatrix() const
+        {
+            Eigen::Matrix3d res(Eigen::Matrix3d::Identity());
+            res(0, 0) = res(1, 1) = f_;
+            res(0, 2) = ppx_;
+            res(1, 2) = ppy_;
+            return res;
+        }
+
         double getAngeleOfView() const
         {
             auto r = std::sqrt(this->w_*this->w_ + this->h_*this->h_)/2;

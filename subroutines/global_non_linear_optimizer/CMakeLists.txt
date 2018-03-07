@@ -1,2 +1,2 @@
-add_executable(global_non_linear_optimizer main_global_non_linear_optimizer.cpp)
-target_link_libraries(non_linear_optimizer core)
+add_executable(global_non_linear_optimizer global_main_non_linear_optimizer.cpp Global_Non_Linear_Estimator.cpp Global_Non_Linear_Estimator.h)
+target_link_libraries(global_non_linear_optimizer core)

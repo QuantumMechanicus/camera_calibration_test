@@ -5,7 +5,7 @@
 #ifndef CAMERA_CALIBRATION_CORE_H
 #define CAMERA_CALIBRATION_CORE_H
 
-#include "../utils/Utilities.h"
+
 #include "../utils/Scene_IO.h"
 #include "../scene/Intrinsics.h"
 #include "../scene/Scene.h"

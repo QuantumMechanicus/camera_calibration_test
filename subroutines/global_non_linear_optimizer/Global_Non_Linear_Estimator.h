@@ -10,7 +10,7 @@
 namespace non_linear_optimization {
     template<template<typename> class TCostFunctor = utils::distortion_problem::EpipolarCurveDistanceError>
     class GlobalOptimizerFunctor {
-        Eigen::Vector3d left_point_, right_point_;
+        Eigen::Vector2d left_point_, right_point_;
         int number_of_distortion_coefficients_;
         double image_radius_;
 
@@ -18,10 +18,10 @@ namespace non_linear_optimization {
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
         GlobalOptimizerFunctor(
-                Eigen::Vector3d left_point, Eigen::Vector3d right_point,
+                const Eigen::Vector2d &left_point, const Eigen::Vector2d &right_point,
                 int number_of_distortion_coefficients, double image_radius = 1)
-                : left_point_(std::move(left_point)),
-                  right_point_(std::move(right_point)),
+                : left_point_(left_point),
+                  right_point_(right_point),
                   number_of_distortion_coefficients_(number_of_distortion_coefficients),
                   image_radius_(image_radius) {}
 
@@ -33,56 +33,34 @@ namespace non_linear_optimization {
             const T *rotation_ptr = parameters[4];
             const T *focal_length_ptr = parameters[1];
             const T *principal_point_ptr = parameters[2];
+            const T *world_point_ptr = parameters[5];
             //TODO points ot parameters?
-
+            using Vector2T = Eigen::Matrix<T, 2, 1>;
             using Vector3T = Eigen::Matrix<T, 3, 1>;
             using Matrix3T = Eigen::Matrix<T, 3, 3>;
-            using VectorNL = Eigen::Matrix<T, Eigen::Dynamic, 1>;
-
-           
-
-            VectorNL lambdas = Eigen::Map<const VectorNL>(lambda_ptr, number_of_distortion_coefficients_);
-            /*bool is_invertible = utils::distortion_problem::checkUndistortionInvertibility<T>(lambdas);
-            if (!is_invertible)
-                return false;*/
-
-            scene::TImagePoint<T> left_point_T = left_point_.topRows(2).cast<T>();
-            scene::TImagePoint<T> right_point_T = right_point_.topRows(2).cast<T>();
-
-            const Eigen::Map<const Sophus::SO3<T>> rotation(rotation_ptr);
-            const Eigen::Map<const Eigen::Matrix<T, 3, 1>> translation(translation_ptr);
-            Matrix3T translation_matrix = utils::screw_hat<T>(translation);
-            Matrix3T calibration_matrix;
-            calibration_matrix.setIdentity();
-            calibration_matrix(0, 0) = calibration_matrix(1, 1) = *focal_length_ptr;
-            calibration_matrix(0, 2) = principal_point_ptr[0];
-            calibration_matrix(1, 2) = principal_point_ptr[1];
-
-            Matrix3T fundamental_matrix =
-                    calibration_matrix.transpose().inverse() * translation_matrix * rotation.matrix() *
-                    calibration_matrix.inverse();
+            using VectorNT = Eigen::Matrix<T, Eigen::Dynamic, 1>;
 
 
-            Eigen::JacobiSVD<Matrix3T> fmatrix_svd(fundamental_matrix, Eigen::ComputeFullU | Eigen::ComputeFullV);
-            Vector3T singular_values = fmatrix_svd.singularValues();
-            singular_values[2] = T(0.0);
-            fundamental_matrix = fmatrix_svd.matrixU() * singular_values.asDiagonal() *
-                                 fmatrix_svd.matrixV().transpose();
-            fundamental_matrix = fundamental_matrix / fundamental_matrix(2, 2);
+            VectorNT lambdas = Eigen::Map<const VectorNT>(lambda_ptr, number_of_distortion_coefficients_);
+            Vector3T wp = Eigen::Map<const Vector3T>(world_point_ptr);
+            Matrix3T calibration = Matrix3T::Identity();
+            Matrix3T rotation = Eigen::Map<const Matrix3T>(rotation_ptr);
+            Vector3T tranlsation = Eigen::Map<const Vector3T>(translation_ptr);
+            Eigen::Map<Eigen::Matrix<T, 4, 1>> residual(residuals);
 
+            calibration(0, 0) = calibration(1, 1) = *focal_length_ptr;
+            calibration(0, 2) = principal_point_ptr[0];
+            calibration(1, 2) = principal_point_ptr[1];
+            Vector2T lip = (calibration * wp).hnormalized();
+            Vector2T rip = (calibration * (rotation * wp + tranlsation)).hnormalized();
 
-            std::pair<T, T> res;
-            bool is_correct = TCostFunctor<T>()(left_point_T,
-                                                right_point_T,
-                                                fundamental_matrix,
-                                                lambdas,
-                                                res.first,
-                                                res.second);
+            Vector2T ldp = utils::distortion_problem::distortion(lip, lambdas);
+            Vector2T rdp = utils::distortion_problem::distortion(rip, lambdas);
 
+            residual.template head<2>() = (ldp - left_point_.cast<T>()) * image_radius_;
+            residual.template tail<2>() = (rdp - right_point_.cast<T>()) * image_radius_;
 
-            residuals[0] = image_radius_ * res.first;
-            residuals[1] = image_radius_ * res.second;
-            return is_correct;
+            return true;
         }
     };
 
@@ -92,7 +70,7 @@ namespace non_linear_optimization {
         double max_interval_;
 
         explicit GlobalNonLinearEstimatorOptions(double quantile_to_minimize = 0.1,
-                                           double max_interval = 10, double image_radius = 1);
+                                                 double max_interval = 10, double image_radius = 1);
     };
 
     class GlobalNonLinearEstimator
@@ -125,7 +103,8 @@ namespace non_linear_optimization {
                                  Eigen::RowVectorXd lambdas,
                                  scene::StdVector<Sophus::SO3d> rotations,
                                  scene::StdVector<Eigen::Vector3d> translations,
-                                 double focal_length, double ppx, double ppy, GlobalNonLinearEstimatorOptions options = GlobalNonLinearEstimatorOptions());
+                                 double focal_length, double ppx, double ppy,
+                                 GlobalNonLinearEstimatorOptions options = GlobalNonLinearEstimatorOptions());
 
 
         bool isEstimated() const override;

@@ -13,6 +13,8 @@
 #include "Local_Parametrization_SO3.h"
 #include "Local_Parametrization_Sphere.h"
 
+#include <glog/logging.h>
+
 namespace utils {
     static const double EPS = 1e-10;
 
@@ -51,12 +53,10 @@ namespace utils {
         if (ColsAtCompileTime == Eigen::Dynamic)
             m.resize(Eigen::NoChange, n_cols);
 
-        if (m.cols() != n_cols or m.rows() != n_rows) {
-            std::cerr << "Invalid matrix size\n";
-            m.setZero();
-            return false;
-        }
-        if (transposed)
+        CHECK_EQ(m.cols(), n_cols) << "Invalid column count";
+        CHECK_EQ(m.rows(), n_rows) << "Invalid row count";
+        
+	    if (transposed)
             std::swap(n_cols, n_rows);
         for (int i = 0; i < n_rows; i++)
             for (int j = 0; j < n_cols; j++)
@@ -150,6 +150,7 @@ namespace utils {
     }
 
 
+
     inline void triangulate(const Eigen::Matrix3d &bifocal_tensor,
                             const Eigen::Matrix3d &rotation_matrix,
                             const Eigen::Matrix3d &translation_matrix,
@@ -157,7 +158,23 @@ namespace utils {
                             const scene::HomogenousImagePoint &right_keypoint,
                             scene::HomogenousWorldPoint &left_backprojected,
                             scene::HomogenousWorldPoint &right_backprojected) {
+#if 1
+        Eigen::Vector3d t = utils::inverted_screw_hat(translation_matrix);
+        Sophus::SO3d so3(rotation_matrix);
+        Sophus::SE3d leftToRight = Sophus::SE3d(so3, t).inverse();
 
+
+        Eigen::Vector3d dir_left = (leftToRight.so3() * left_keypoint).normalized(),
+                        dir_right = right_keypoint.normalized();
+        Eigen::Matrix<double, 3, 2> A;
+        A.col(0) = dir_left;
+        A.col(1) = -dir_right;
+        Eigen::Vector3d b = -leftToRight.translation();
+        Eigen::Vector2d alphas = A.fullPivHouseholderQr().solve(b);
+        Eigen::Vector3d pt = (alphas[0] * dir_left + t + alphas[1] * dir_right) / 2.0;
+        right_backprojected = pt.homogeneous();
+        left_backprojected = (leftToRight.inverse() * pt).homogeneous();
+#else
         Eigen::Matrix<double, 3, 4> projection_matrix;
         Eigen::Vector3d translation_vector = utils::inverted_screw_hat(translation_matrix);
         projection_matrix << rotation_matrix, translation_vector;
@@ -188,6 +205,23 @@ namespace utils {
         right_backprojected[1] = pQ[1];
         right_backprojected[2] = pQ[2];
         right_backprojected[3] = 1;
+#endif
+    }
+
+    inline void triangulate(const Eigen::Matrix3d &bifocal_tensor,
+                            const Eigen::Matrix3d &rotation_matrix,
+                            const Eigen::Matrix3d &translation_matrix,
+                            const scene::ImagePoint &left_keypoint,
+                            const scene::ImagePoint &right_keypoint,
+                            scene::WorldPoint &left_backprojected,
+                            scene::WorldPoint &right_backprojected) {
+        auto left_backprojected_h  = left_backprojected.homogeneous().eval();
+        auto right_backprojected_h  =right_backprojected.homogeneous().eval();
+
+        triangulate(bifocal_tensor, rotation_matrix, translation_matrix, left_keypoint.homogeneous(), right_keypoint.homogeneous(),
+                    left_backprojected_h, right_backprojected_h);
+        left_backprojected = left_backprojected_h.hnormalized();
+        right_backprojected = right_backprojected_h.hnormalized();
 
     }
 
@@ -201,7 +235,7 @@ namespace utils {
                     right_keypoint.homogeneous(),
                     left_backprojected, right_backprojected);
         bool c1 = left_backprojected[2] * left_backprojected[3] > 0;
-        bool c2 = right_backprojected[2] * left_backprojected[3] > 0;
+        bool c2 = right_backprojected[2] * right_backprojected[3] > 0;
         return (c1 && c2);
     }
 
@@ -267,6 +301,7 @@ namespace utils {
             return u * denominator;
         }
 
+
         template<typename T>
         scene::TImagePoint<T> undistortion(const scene::TImagePoint<T> &ud,
                                            const Eigen::Matrix<T, Eigen::Dynamic, 1> &distortion_coefficients) {
@@ -308,6 +343,12 @@ namespace utils {
 
             }
             return rd;
+        }
+
+        template<typename T>
+        scene::TImagePoint<T> distortion(const scene::TImagePoint<T> &u,
+                                         const Eigen::Matrix<T, Eigen::Dynamic, 1> &distortion_coefficients) {
+            return distortion<T>(u, findDistortedRadius(distortion_coefficients, u.norm()), distortion_coefficients);
         }
 
         template<typename T>
@@ -369,25 +410,24 @@ namespace utils {
                 homogeneous_u1 = u1.homogeneous();
                 homogeneous_u2 = u2.homogeneous();
 
-                Eigen::Matrix<T, 3, 1> l1 = fundamental_matrix * homogeneous_u1;
-                Eigen::Matrix<T, 3, 1> l2 = fundamental_matrix.transpose() * homogeneous_u2;
+                Eigen::Matrix<T, 3, 1> l2 = fundamental_matrix * homogeneous_u1;
+                Eigen::Matrix<T, 3, 1> l1 = fundamental_matrix.transpose() * homogeneous_u2;
 
                 T n1 = l1.template block<2, 1>(0, 0).norm();
                 T n2 = l2.template block<2, 1>(0, 0).norm();
-                T err = l1.dot(homogeneous_u2);
+                T err = l1.dot(homogeneous_u1);
 
 
                 left_residual = err / n1;
                 right_residual = err / n2;
-                line_point1 = u1 + left_residual * l1.template block<2, 1>(0, 0) / n1;
-                line_point2 = u2 + right_residual * l1.template block<2, 1>(0, 0) / n1;
+                line_point1 = u1 - left_residual * l1.template block<2, 1>(0, 0) / n1;
+                line_point2 = u2 - right_residual * l2.template block<2, 1>(0, 0) / n2;
+
 
 
                 T root_r1d_estimation, root_r2d_estimation;
 
-                T epsilon1, epsilon2;
-                epsilon1 = std::min(ceres::abs(left_residual), T(0.5));
-                epsilon2 = std::min(ceres::abs(right_residual), T(0.5));
+
 
 
                 T r1u = line_point1.norm();

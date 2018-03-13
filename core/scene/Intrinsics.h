@@ -64,6 +64,19 @@ namespace intrinsics {
             f_ = estimator.getEstimation();
         }
 
+        Eigen::Vector2d undistortImpl(const  Eigen::Vector2d &p) {
+            double rd = p.norm();
+            double denominator(1.0);
+            double r_distorted2 = rd * rd;
+            double r_distorted2_pow = r_distorted2;
+            for (int i = 0; i < lambdas_.rows(); ++i) {
+                denominator += lambdas_[i] * r_distorted2_pow;
+                r_distorted2_pow *= r_distorted2;
+            }
+            return p / denominator;
+
+        }
+
     public:
 
         /**
@@ -79,9 +92,9 @@ namespace intrinsics {
          * @param lambdas Parameters of division model
          */
         explicit DivisionModel(const Eigen::Matrix<double, N, 1> &lambdas, unsigned int w = 0,
-                                        unsigned int h = 0,
-                                        double f = 0, double ppx = 0,
-                                        double ppy = 0)
+                               unsigned int h = 0,
+                               double f = 0, double ppx = 0,
+                               double ppy = 0)
                 : AbstractIntrinsics<DivisionModel>(w, h), ppx_(ppx),
                   ppy_(ppy),
                   f_(f),
@@ -96,9 +109,9 @@ namespace intrinsics {
          * @param n Number of distortion coefficients (lambdas)
          */
         explicit DivisionModel(unsigned int n, const Eigen::Matrix<double, N, 1> &lambdas, unsigned int w = 0,
-                                        unsigned int h = 0,
-                                        double f = 0, double ppx = 0,
-                                        double ppy = 0)
+                               unsigned int h = 0,
+                               double f = 0, double ppx = 0,
+                               double ppy = 0)
                 : AbstractIntrinsics<DivisionModel>(w, h), ppx_(ppx),
                   ppy_(ppy),
                   f_(f),
@@ -111,8 +124,8 @@ namespace intrinsics {
          * @param f Focal length
          */
         DivisionModel(unsigned int w, unsigned int h, double f = 0, double ppx = 0,
-                               double ppy = 0) : AbstractIntrinsics<DivisionModel>(w, h), ppx_(ppx), ppy_(ppy),
-                                                 f_(f) {
+                      double ppy = 0) : AbstractIntrinsics<DivisionModel>(w, h), ppx_(ppx), ppy_(ppy),
+                                        f_(f) {
             assert(N != Eigen::Dynamic && "You should pass number of parameters for dynamic model");
             lambdas_.setZero();
         }
@@ -125,8 +138,8 @@ namespace intrinsics {
          * @param n Number of distortion coefficients (lambdas)
          */
         DivisionModel(unsigned int n, unsigned int w, unsigned int h, double f = 0, double ppx = 0,
-                               double ppy = 0) : AbstractIntrinsics<DivisionModel>(w, h), ppx_(ppx), ppy_(ppy),
-                                                 f_(f) {
+                      double ppy = 0) : AbstractIntrinsics<DivisionModel>(w, h), ppx_(ppx), ppy_(ppy),
+                                        f_(f) {
             lambdas_.resize(n, Eigen::NoChange);
             lambdas_.setZero();
         }
@@ -171,21 +184,19 @@ namespace intrinsics {
             return static_cast<int>(lambdas_.rows());
         }
 
-        Eigen::Matrix3d getCalibrationMatrix() const
-        {
+        Eigen::Matrix3d getCalibrationMatrix() const {
             Eigen::Matrix3d res(Eigen::Matrix3d::Identity());
             //TODO change remove r
-            auto r = std::sqrt(this->w_*this->w_ + this->h_*this->h_)/2;
+            auto r = std::sqrt(this->w_ * this->w_ + this->h_ * this->h_) / 2;
             res(0, 0) = res(1, 1) = f_;
             res(0, 2) = ppx_;
             res(1, 2) = ppy_;
             return res;
         }
 
-        double getAngeleOfView() const
-        {
+        double getAngeleOfView() const {
 
-            return 2*std::atan(1/f_)*180.0/M_PI;
+            return 2 * std::atan(1 / f_) * 180.0 / M_PI;
         }
 
         /**

@@ -33,8 +33,8 @@ namespace scene {
                       const Eigen::Matrix3d &translation_matrix,
                       size_t keypoint_ind) {
             return utils::chiralityTest(bifocal_tensor_, rotation_matrix, translation_matrix,
-                                        left_keypoints_.col(keypoint_ind),
-                                        right_keypoints_.col(keypoint_ind));
+                                        getLeftIntrinsicsPointer()->undistort(left_keypoints_.col(keypoint_ind)),
+                                        getRightIntrinsicsPointer()->undistort(right_keypoints_.col(keypoint_ind)));
         }
 
     protected:
@@ -242,7 +242,7 @@ namespace scene {
             //translation_vector.normalize();
             translation_matrix = utils::screw_hat(translation_vector);
 
-            Eigen::Matrix3d current_rotation = Eigen::Matrix3d::Zero();
+            Eigen::Matrix3d current_rotation = Eigen::Matrix3d::Identity();
             Eigen::Matrix3d current_translation = translation_matrix;
 
             int max_counter = 0;

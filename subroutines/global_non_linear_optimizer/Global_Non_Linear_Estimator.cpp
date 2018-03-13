@@ -25,6 +25,7 @@ namespace non_linear_optimization {
         pp_ptr[0] = ppx_;
         pp_ptr[1] = ppy_;
 
+
         problem.AddParameterBlock(lambda_ptr, static_cast<int>(number_of_distortion_coefficients));
         //problem.SetParameterBlockConstant(lambda_ptr);
         problem.AddParameterBlock(focal_ptr, 1);
@@ -37,16 +38,17 @@ namespace non_linear_optimization {
         calibration_matrix(0, 2) = pp_ptr[0];
         calibration_matrix(1, 2) = pp_ptr[1];
         std::cout << *focal_ptr << " " << focal_length_ << " Check" << std::endl;
+        scene::StdVector<scene::WorldPoints> wp(number_of_pairs_);
 
         for (size_t kth_pair = 0; kth_pair < number_of_pairs_; ++kth_pair) {
             auto &kth_translation = translations_[kth_pair];
             auto &kth_rotation = rotations_[kth_pair];
-
+            auto &kth_fm = fundamental_matrices_[kth_pair];
             //TODO to function essintial to fund
-            fundamental_matrices_[kth_pair] =
+            kth_fm =
                     calibration_matrix.inverse().transpose() * utils::screw_hat(kth_translation) *
                     kth_rotation.matrix() * calibration_matrix.inverse();
-            std::cout << fundamental_matrices_[kth_pair] << std::endl;
+            std::cout << kth_fm << std::endl;
 
             double *tr_ptr = kth_translation.data();
             double *rot_ptr = kth_rotation.data();
@@ -58,7 +60,7 @@ namespace non_linear_optimization {
             double interval = utils::distortion_problem::findInliers(left_pictures_keypoints_[kth_pair],
                                                                      right_pictures_keypoints_[kth_pair],
                                                                      lambdas_,
-                                                                     fundamental_matrices_[kth_pair],
+                                                                     kth_fm,
                                                                      options_.quantile_to_minimize_,
                                                                      inliers_ind, options_.image_radius_);
 
@@ -69,32 +71,59 @@ namespace non_linear_optimization {
                 i1d.col(kth_inlier) = left_pictures_keypoints_[kth_pair].col(inliers_ind[kth_inlier]);
                 i2d.col(kth_inlier) = right_pictures_keypoints_[kth_pair].col(inliers_ind[kth_inlier]);
             }
+            wp[kth_pair].resize(Eigen::NoChange, i1d.cols());
+
 
             for (size_t k = 0; k < i1d.cols(); ++k) {
+                auto kth_translation_matrix = utils::screw_hat(kth_translation);
+                scene::WorldPoint right_bprj;
+                scene::WorldPoint left_bprj;
 
-                Eigen::Vector3d left, right;
-                left.template block<2, 1>(0, 0) = i1d.col(k);
-                right.template block<2, 1>(0, 0) = i2d.col(k);
-                left[2] = right[2] = 1.0;
+                utils::triangulate(kth_fm, kth_rotation.matrix(), kth_translation_matrix,
+                                   utils::distortion_problem::undistortion<double>(i1d.col(k),
+                                                                                   lambdas_),
+                                   utils::distortion_problem::undistortion<double>(i2d.col(k), lambdas_),
+                                   left_bprj, right_bprj);
+                wp[kth_pair].col(k) = right_bprj;
+
+                std::cout << std::endl;
+                std::cout << (utils::distortion_problem::distortion<double>(
+                        (calibration_matrix * right_bprj).hnormalized().eval(), lambdas_)
+                              - i1d.col(k)).transpose()* options_.image_radius_ << std::endl;
+
+                std::cout << (utils::distortion_problem::distortion<double>(
+                        (calibration_matrix * right_bprj).hnormalized().eval(), lambdas_)
+                              - i2d.col(k)).transpose()* options_.image_radius_ << std::endl;
+
+                std::cout << (utils::distortion_problem::distortion<double>(
+                        (calibration_matrix * left_bprj).hnormalized().eval(), lambdas_)
+                              - i1d.col(k)).transpose()* options_.image_radius_ << std::endl;
+
+                std::cout << (utils::distortion_problem::distortion<double>(
+                        (calibration_matrix * left_bprj).hnormalized().eval(), lambdas_)
+                              - i2d.col(k)).transpose()* options_.image_radius_ << std::endl;
+
+                problem.AddParameterBlock(&wp[kth_pair](0, k), 3);
+
+
 
                 auto fun = new ceres::DynamicAutoDiffCostFunction<GlobalOptimizerFunctor<>>(
-                        new GlobalOptimizerFunctor<>(left, right, static_cast<int>(number_of_distortion_coefficients),
+                        new GlobalOptimizerFunctor<>(i1d.col(k), i2d.col(k), static_cast<int>(number_of_distortion_coefficients),
                                                      options_.image_radius_));
                 fun->AddParameterBlock(static_cast<int>(number_of_distortion_coefficients));
                 fun->AddParameterBlock(1);
                 fun->AddParameterBlock(2);
                 fun->AddParameterBlock(3);
                 fun->AddParameterBlock(4);
-                fun->SetNumResiduals(2);
-                problem.AddResidualBlock(fun, nullptr, lambda_ptr, focal_ptr, pp_ptr, tr_ptr, rot_ptr);
-                double ress[2];
-                double *ddd[] = {lambda_ptr, focal_ptr, pp_ptr, tr_ptr, rot_ptr};
-                std::cout << fun->Evaluate(ddd, ress, NULL) << " " << residuals << std::endl;
-                std::cout << ress[0] << " " << ress[1] << std::endl;
+                fun->AddParameterBlock(3);
+                fun->SetNumResiduals(4);
+                problem.AddResidualBlock(fun, nullptr, lambda_ptr, focal_ptr, pp_ptr, tr_ptr, rot_ptr, &wp[kth_pair](0, k));
+
                 ++residuals;
             }
 
         }
+        std::cout << residuals << " points" << std::endl;
         std::cout << lambdas_ << " --- coefficients before estimation" << std::endl;
         ceres::Solver::Options options;
         //options.max_trust_region_radius = 0.01;
@@ -114,8 +143,8 @@ namespace non_linear_optimization {
         std::cout << lambdas_ << " --- estimated coefficients" << std::endl;
         std::cout << focal_length_ << " --- focal length" << std::endl;
         std::cout << ppx_ << " " << ppy_ << std::endl;
-        std::cout << 2*atan(1/focal_length_)*180/M_PI << std::endl;
-        std::cout << std::sqrt(summary.final_cost*2/residuals) << std::endl;
+        std::cout << 2 * atan(1 / focal_length_) * 180 / M_PI << std::endl;
+        std::cout << std::sqrt(summary.final_cost * 2 / residuals) << " final rmse" << std::endl;
         for (size_t kth_pair = 0; kth_pair < number_of_pairs_; ++kth_pair) {
             calibration_matrix.setIdentity();
             calibration_matrix(0, 0) = calibration_matrix(1, 1) = *focal_ptr;

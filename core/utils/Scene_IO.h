@@ -132,7 +132,7 @@ namespace scene_serialization {
         void deserialize(scene::TwoView<typename CameraArchiver::Model_t> &stereo_pair,
                          std::shared_ptr<typename scene::TwoView<typename CameraArchiver::Model_t>::VertexMap_t>
                          ptr_to_list_of_vertices) const {
-
+            std::cout << "A" << std::endl;
             Eigen::Matrix3d fundamental_matrix;
             scene::ImagePoints left_points, right_points;
             Eigen::Matrix4d relative_motion_matrix;

@@ -35,6 +35,10 @@ namespace intrinsics {
             static_cast<TDerived *>(this)->estimateParameterImpl(estimator);
         }
 
+        Eigen::Vector2d undistort(const Eigen::Vector2d &p)
+        {
+            static_cast<TDerived *>(this)->undistortImpl(p);
+        }
 
         /**
          * @brief Getter for width of the image

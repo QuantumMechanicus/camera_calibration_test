@@ -41,6 +41,10 @@ namespace scene {
 
     typedef Eigen::Matrix<double, 3, Eigen::Dynamic> HomogenousImagePoints;
 
+    typedef Eigen::Matrix<double, 3, Eigen::Dynamic> WorldPoints;
+
+    typedef Eigen::Matrix<double, 4, Eigen::Dynamic> HomogenousWorldPoints;
+
     typedef Eigen::Matrix3d FundamentalMatrix;
 
     typedef StdVector<FundamentalMatrix> FundamentalMatrices;

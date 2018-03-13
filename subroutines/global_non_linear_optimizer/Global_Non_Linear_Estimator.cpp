@@ -45,9 +45,8 @@ namespace non_linear_optimization {
             auto &kth_rotation = rotations_[kth_pair];
             auto &kth_fm = fundamental_matrices_[kth_pair];
             //TODO to function essintial to fund
-            kth_fm =
-                    calibration_matrix.inverse().transpose() * utils::screw_hat(kth_translation) *
-                    kth_rotation.matrix() * calibration_matrix.inverse();
+            kth_fm =  calibration_matrix.transpose().inverse()*utils::screw_hat(kth_translation)*kth_rotation.matrix()*calibration_matrix.inverse();
+
             std::cout << kth_fm << std::endl;
 
             double *tr_ptr = kth_translation.data();
@@ -57,12 +56,14 @@ namespace non_linear_optimization {
 
 
             std::vector<size_t> inliers_ind;
+            Sophus::SE3d leftToRight(kth_rotation, kth_translation);
             double interval = utils::distortion_problem::findInliers(left_pictures_keypoints_[kth_pair],
                                                                      right_pictures_keypoints_[kth_pair],
                                                                      lambdas_,
-                                                                     kth_fm,
+                                                                     leftToRight, calibration_matrix,
                                                                      options_.quantile_to_minimize_,
                                                                      inliers_ind, options_.image_radius_);
+            std::cout << "Interval:: " << interval << std::endl;
 
             Eigen::Matrix<double, 2, Eigen::Dynamic> i1d, i2d;
             i1d.resize(Eigen::NoChange, inliers_ind.size());
@@ -78,18 +79,25 @@ namespace non_linear_optimization {
                 auto kth_translation_matrix = utils::screw_hat(kth_translation);
                 scene::WorldPoint right_bprj;
                 scene::WorldPoint left_bprj;
-
+                std::cout << "Test:: " << calibration_matrix.transpose()*kth_fm*calibration_matrix -
+                        kth_translation_matrix*kth_rotation.matrix()<< std::endl << std::endl;
                 utils::triangulate(kth_fm, kth_rotation.matrix(), kth_translation_matrix,
                                    utils::distortion_problem::undistortion<double>(i1d.col(k),
                                                                                    lambdas_),
                                    utils::distortion_problem::undistortion<double>(i2d.col(k), lambdas_),
                                    left_bprj, right_bprj);
-                wp[kth_pair].col(k) = right_bprj;
+                wp[kth_pair].col(k) = left_bprj;
 
                 std::cout << std::endl;
-                std::cout << (utils::distortion_problem::distortion<double>(
-                        (calibration_matrix * right_bprj).hnormalized().eval(), lambdas_)
-                              - i1d.col(k)).transpose()* options_.image_radius_ << std::endl;
+
+                std::cout << "Test2:: " <<
+                                        (utils::distortion_problem::undistortion<double>(i2d.col(k),
+                                                                                            lambdas_)
+                                         - (calibration_matrix * right_bprj).hnormalized()).transpose() << std::endl;
+                std::cout << "Test2:: " <<
+                          (utils::distortion_problem::undistortion<double>(i1d.col(k),
+                                                                           lambdas_)
+                           - (calibration_matrix * left_bprj).hnormalized()).transpose() << std::endl;
 
                 std::cout << (utils::distortion_problem::distortion<double>(
                         (calibration_matrix * right_bprj).hnormalized().eval(), lambdas_)
@@ -99,9 +107,7 @@ namespace non_linear_optimization {
                         (calibration_matrix * left_bprj).hnormalized().eval(), lambdas_)
                               - i1d.col(k)).transpose()* options_.image_radius_ << std::endl;
 
-                std::cout << (utils::distortion_problem::distortion<double>(
-                        (calibration_matrix * left_bprj).hnormalized().eval(), lambdas_)
-                              - i2d.col(k)).transpose()* options_.image_radius_ << std::endl;
+
 
                 problem.AddParameterBlock(&wp[kth_pair](0, k), 3);
 

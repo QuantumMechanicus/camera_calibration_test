@@ -73,6 +73,7 @@ namespace intrinsics {
                 denominator += lambdas_[i] * r_distorted2_pow;
                 r_distorted2_pow *= r_distorted2;
             }
+
             return p / denominator;
 
         }

@@ -37,7 +37,7 @@ namespace intrinsics {
 
         Eigen::Vector2d undistort(const Eigen::Vector2d &p)
         {
-            static_cast<TDerived *>(this)->undistortImpl(p);
+            return static_cast<TDerived *>(this)->undistortImpl(p);
         }
 
         /**

@@ -24,6 +24,7 @@ namespace scene {
         ImagePoints left_keypoints_{};
         ImagePoints right_keypoints_{};
         FundamentalMatrix bifocal_tensor_{};
+        Eigen::Matrix<double, 2, Eigen::Dynamic> i1d{}, i2d{};
         //TODO add recompute f_matrix
         long number_of_points_{};
 
@@ -33,8 +34,9 @@ namespace scene {
                       const Eigen::Matrix3d &translation_matrix,
                       size_t keypoint_ind) {
             return utils::chiralityTest(bifocal_tensor_, rotation_matrix, translation_matrix,
-                                        getLeftIntrinsicsPointer()->undistort(left_keypoints_.col(keypoint_ind)),
-                                        getRightIntrinsicsPointer()->undistort(right_keypoints_.col(keypoint_ind)));
+                                        getLeftIntrinsicsPointer()->undistort(i1d.col(keypoint_ind)),
+                                        getRightIntrinsicsPointer()->undistort(i2d.col(keypoint_ind)), getLeftIntrinsicsPointer()->getDistortionCoefficients(),
+            getLeftIntrinsicsPointer()->getCalibrationMatrix());
         }
 
     protected:
@@ -277,10 +279,19 @@ namespace scene {
                                       (original_E.normalized() + (current_translation *
                                                                   current_rotation).normalized()).norm())
                           << " check_OE" << std::endl;
-                for (size_t kth_point = 0; kth_point < number_of_points_; ++kth_point) {
-                    if (chiralityTest(current_rotation, current_translation, kth_point))
-                        counter++;
-                }
+
+                std::vector<size_t> inliers_ind;
+                Sophus::SE3d leftToRight(current_rotation, utils::inverted_screw_hat(current_translation));
+
+                double interval = utils::distortion_problem::findInliers(left_keypoints_,
+                                                                         right_keypoints_,
+                                                                         getLeftIntrinsicsPointer()->getDistortionCoefficients(),
+                                                                         leftToRight,getLeftIntrinsicsPointer()->getCalibrationMatrix(),
+                                                                         0.1,
+                                                                         inliers_ind);
+
+
+                counter = inliers_ind.size();
                 if (counter > max_counter) {
                     rotation_matrix = current_rotation;
                     translation_matrix = current_translation;

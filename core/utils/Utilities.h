@@ -55,8 +55,8 @@ namespace utils {
 
         CHECK_EQ(m.cols(), n_cols) << "Invalid column count";
         CHECK_EQ(m.rows(), n_rows) << "Invalid row count";
-        
-	    if (transposed)
+
+        if (transposed)
             std::swap(n_cols, n_rows);
         for (int i = 0; i < n_rows; i++)
             for (int j = 0; j < n_cols; j++)
@@ -151,93 +151,7 @@ namespace utils {
 
 
 
-    inline void triangulate(const Eigen::Matrix3d &bifocal_tensor,
-                            const Eigen::Matrix3d &rotation_matrix,
-                            const Eigen::Matrix3d &translation_matrix,
-                            const scene::HomogenousImagePoint &left_keypoint,
-                            const scene::HomogenousImagePoint &right_keypoint,
-                            scene::HomogenousWorldPoint &left_backprojected,
-                            scene::HomogenousWorldPoint &right_backprojected) {
-#if 1
-        Eigen::Vector3d t = utils::inverted_screw_hat(translation_matrix);
-        Sophus::SO3d so3(rotation_matrix);
-        Sophus::SE3d leftToRight = Sophus::SE3d(so3, t).inverse();
 
-
-        Eigen::Vector3d dir_left = (leftToRight.so3() * left_keypoint).normalized(),
-                        dir_right = right_keypoint.normalized();
-        Eigen::Matrix<double, 3, 2> A;
-        A.col(0) = dir_left;
-        A.col(1) = -dir_right;
-        Eigen::Vector3d b = -leftToRight.translation();
-        Eigen::Vector2d alphas = A.fullPivHouseholderQr().solve(b);
-        Eigen::Vector3d pt = (alphas[0] * dir_left + t + alphas[1] * dir_right) / 2.0;
-        right_backprojected = pt.homogeneous();
-        left_backprojected = (leftToRight.inverse() * pt).homogeneous();
-#else
-        Eigen::Matrix<double, 3, 4> projection_matrix;
-        Eigen::Vector3d translation_vector = utils::inverted_screw_hat(translation_matrix);
-        projection_matrix << rotation_matrix, translation_vector;
-        Eigen::Matrix3d matrixH = Eigen::Matrix3d::Zero();
-        matrixH(0, 0) = 1;
-        matrixH(1, 1) = 1;
-
-        Eigen::Vector3d a = bifocal_tensor.transpose() * right_keypoint;
-        Eigen::Vector3d h1 = matrixH * a;
-        Eigen::Vector3d h2 = matrixH * bifocal_tensor * left_keypoint;
-
-        Eigen::Vector3d b = left_keypoint.cross(h1);
-        Eigen::Vector3d c = right_keypoint.cross(h2);
-
-        a.normalize();
-        b.normalize();
-        Eigen::Vector3d d = a.cross(b);
-        d.normalize();
-
-        Eigen::Vector4d pC = (projection_matrix.transpose() * c);
-
-        left_backprojected[0] = pC[3] * d[0];
-        left_backprojected[1] = pC[3] * d[1];
-        left_backprojected[2] = pC[3] * d[2];
-        left_backprojected[3] = -d.cwiseProduct(pC.template block<3, 1>(0, 0)).sum();
-        Eigen::Vector3d pQ = projection_matrix * left_backprojected;
-        right_backprojected[0] = pQ[0];
-        right_backprojected[1] = pQ[1];
-        right_backprojected[2] = pQ[2];
-        right_backprojected[3] = 1;
-#endif
-    }
-
-    inline void triangulate(const Eigen::Matrix3d &bifocal_tensor,
-                            const Eigen::Matrix3d &rotation_matrix,
-                            const Eigen::Matrix3d &translation_matrix,
-                            const scene::ImagePoint &left_keypoint,
-                            const scene::ImagePoint &right_keypoint,
-                            scene::WorldPoint &left_backprojected,
-                            scene::WorldPoint &right_backprojected) {
-        auto left_backprojected_h  = left_backprojected.homogeneous().eval();
-        auto right_backprojected_h  =right_backprojected.homogeneous().eval();
-
-        triangulate(bifocal_tensor, rotation_matrix, translation_matrix, left_keypoint.homogeneous(), right_keypoint.homogeneous(),
-                    left_backprojected_h, right_backprojected_h);
-        left_backprojected = left_backprojected_h.hnormalized();
-        right_backprojected = right_backprojected_h.hnormalized();
-
-    }
-
-    inline bool
-    chiralityTest(const Eigen::Matrix3d &fundamental_matrix,
-                  const Eigen::Matrix3d &rotation_matrix,
-                  const Eigen::Matrix3d &translation_matrix,
-                  const scene::ImagePoint &left_keypoint, const scene::ImagePoint &right_keypoint) {
-        scene::HomogenousWorldPoint left_backprojected, right_backprojected;
-        triangulate(fundamental_matrix, rotation_matrix, translation_matrix, left_keypoint.homogeneous(),
-                    right_keypoint.homogeneous(),
-                    left_backprojected, right_backprojected);
-        bool c1 = left_backprojected[2] * left_backprojected[3] > 0;
-        bool c2 = right_backprojected[2] * right_backprojected[3] > 0;
-        return (c1 && c2);
-    }
 
     namespace distortion_problem {
 
@@ -250,6 +164,13 @@ namespace utils {
                            const scene::ImagePoints &u2d,
                            const Eigen::Matrix<double, Eigen::Dynamic, 1> &distortion_coefficients,
                            const scene::FundamentalMatrix &fundamental_matrix, double expected_percent_of_inliers,
+                           std::vector<size_t> &inliers_indices, double image_r = 1.0);
+
+        double findInliers(const scene::ImagePoints &u1d,
+                           const scene::ImagePoints &u2d,
+                           const Eigen::Matrix<double, Eigen::Dynamic, 1> &distortion_coefficients,
+                           const Sophus::SE3d &leftToRight, const Eigen::Matrix3d &calibration,
+                           double expected_percent_of_inliers,
                            std::vector<size_t> &inliers_indices, double image_r = 1.0);
 
 
@@ -424,10 +345,7 @@ namespace utils {
                 line_point2 = u2 - right_residual * l2.template block<2, 1>(0, 0) / n2;
 
 
-
                 T root_r1d_estimation, root_r2d_estimation;
-
-
 
 
                 T r1u = line_point1.norm();
@@ -523,6 +441,162 @@ namespace utils {
                 }*/
             }
         };
+    }
+    struct CostFunction {
+        Sophus::SE3d leftToRight;
+        Eigen::VectorXd distortion_c;
+        Eigen::Matrix3d calibration;
+        Eigen::Vector2d lft;
+        Eigen::Vector2d rht;
+
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+        CostFunction(const Sophus::SE3d &l2r, const Eigen::VectorXd &dst, const Eigen::Matrix3d &clb,
+
+                     const Eigen::Vector2d &l, const Eigen::Vector2d &r) : leftToRight(l2r), distortion_c(dst),
+                                                                           calibration(clb), lft(l), rht(r) {}
+
+        template<typename T>
+        bool operator()(const T *point_ptr, T *residuals) const {
+            Eigen::Map<const Eigen::Matrix<T, 3, 1>> point(point_ptr);
+            Eigen::Map<Eigen::Matrix<T, 4, 1>> rs(residuals);
+
+            rs.template head<2>() = distortion_problem::distortion<T>( (calibration.template cast<T>() * point).hnormalized(),
+                                                                      distortion_c.template cast<T>()) -
+                                    lft.template cast<T>();
+            rs.template tail<2>() = distortion_problem::distortion<T>(
+                    (calibration.template cast<T>() * (leftToRight.template cast<T>() * point)).hnormalized(),
+                    distortion_c.template cast<T>()) - rht.template cast<T>();
+
+            return true;
+        }
+    };
+
+    inline void triangulate(const Eigen::Matrix3d &bifocal_tensor,
+                            const Eigen::Matrix3d &rotation_matrix,
+                            const Eigen::Matrix3d &translation_matrix,
+                            const scene::HomogenousImagePoint &left_keypoint,
+                            const scene::HomogenousImagePoint &right_keypoint,
+                            scene::HomogenousWorldPoint &left_backprojected,
+                            scene::HomogenousWorldPoint &right_backprojected,
+                            const Eigen::VectorXd &distortion_coefficients = Eigen::VectorXd(),
+                            const Eigen::Matrix3d &calibration = Eigen::Matrix3d::Zero()) {
+
+#if 1
+        Eigen::Vector3d t = utils::inverted_screw_hat(translation_matrix);
+        Sophus::SO3d so3(rotation_matrix);
+        Sophus::SE3d leftToRight = Sophus::SE3d(so3, t);
+
+
+        Eigen::Vector3d dir_left = (leftToRight.so3() * left_keypoint).normalized(),
+                dir_right = right_keypoint.normalized();
+        Eigen::Matrix<double, 3, 2> A;
+        A.col(0) = dir_left;
+        A.col(1) = -dir_right;
+        Eigen::Vector3d b = -leftToRight.translation();
+        Eigen::Vector2d alphas = A.fullPivHouseholderQr().solve(b);
+        Eigen::Vector3d pt = (alphas[0] * dir_left + t + alphas[1] * dir_right) / 2.0;
+        right_backprojected = pt.homogeneous();
+        left_backprojected = (leftToRight.inverse() * pt).homogeneous();
+
+        ceres::Problem problem;
+        problem.AddParameterBlock(left_backprojected.data(), 3);
+        problem.AddResidualBlock(new ceres::AutoDiffCostFunction<CostFunction, 4, 3>(
+                new CostFunction(leftToRight, distortion_coefficients, calibration,
+
+                                 left_keypoint.hnormalized(), right_keypoint.hnormalized())), nullptr,
+                                 left_backprojected.data());
+        ceres::Solver::Options options;
+        //options.max_trust_region_radius = 0.01;
+        options.max_num_iterations = 500;
+        options.linear_solver_type = ceres::DENSE_QR;
+        options.num_threads = 8;
+        options.function_tolerance = 1e-16;
+        options.parameter_tolerance = 1e-16;
+        options.minimizer_progress_to_stdout = true;
+        options.preconditioner_type = ceres::IDENTITY;
+        options.jacobi_scaling = false;
+
+        // Solve
+        ceres::Solver::Summary summary;
+        ceres::Solve(options, &problem, &summary);
+        right_backprojected.template head<3>() = leftToRight * left_backprojected.template head<3>();
+
+
+#else
+        Eigen::Matrix<double, 3, 4> projection_matrix;
+        Eigen::Vector3d translation_vector = utils::inverted_screw_hat(translation_matrix);
+        projection_matrix << rotation_matrix, translation_vector;
+        Eigen::Matrix3d matrixH = Eigen::Matrix3d::Zero();
+        matrixH(0, 0) = 1;
+        matrixH(1, 1) = 1;
+
+        Eigen::Vector3d a = bifocal_tensor.transpose() * right_keypoint;
+        Eigen::Vector3d h1 = matrixH * a;
+        Eigen::Vector3d h2 = matrixH * bifocal_tensor * left_keypoint;
+
+        Eigen::Vector3d b = left_keypoint.cross(h1);
+        Eigen::Vector3d c = right_keypoint.cross(h2);
+
+        a.normalize();
+        b.normalize();
+        Eigen::Vector3d d = a.cross(b);
+        d.normalize();
+
+        Eigen::Vector4d pC = (projection_matrix.transpose() * c);
+
+        left_backprojected[0] = pC[3] * d[0];
+        left_backprojected[1] = pC[3] * d[1];
+        left_backprojected[2] = pC[3] * d[2];
+        left_backprojected[3] = -d.cwiseProduct(pC.template block<3, 1>(0, 0)).sum();
+        Eigen::Vector3d pQ = projection_matrix * left_backprojected / left_backprojected[3];
+        right_backprojected[0] = pQ[0];
+        right_backprojected[1] = pQ[1];
+        right_backprojected[2] = pQ[2];
+        right_backprojected[3] = 1;
+#endif
+    }
+
+    inline void triangulate(const Eigen::Matrix3d &bifocal_tensor,
+                            const Eigen::Matrix3d &rotation_matrix,
+                            const Eigen::Matrix3d &translation_matrix,
+                            const scene::ImagePoint &left_keypoint,
+                            const scene::ImagePoint &right_keypoint,
+                            scene::WorldPoint &left_backprojected,
+                            scene::WorldPoint &right_backprojected,
+                            const Eigen::VectorXd &distortion_coefficients = Eigen::VectorXd(),
+                            const Eigen::Matrix3d &calibration = Eigen::Matrix3d::Zero()) {
+        auto left_backprojected_h = left_backprojected.homogeneous().eval();
+        auto right_backprojected_h = right_backprojected.homogeneous().eval();
+        std::cout << "FM: " << right_keypoint.transpose().homogeneous() * bifocal_tensor * left_keypoint.homogeneous()
+                  << std::endl;
+        triangulate(bifocal_tensor, rotation_matrix, translation_matrix, left_keypoint.homogeneous(),
+                    right_keypoint.homogeneous(),
+                    left_backprojected_h, right_backprojected_h, distortion_coefficients, calibration);
+        left_backprojected = left_backprojected_h.hnormalized();
+        right_backprojected = right_backprojected_h.hnormalized();
+        std::cout << left_backprojected(2) << " " << right_backprojected(2) << std::endl;
+        std::cout << "E " << right_backprojected.normalized().transpose() * translation_matrix * rotation_matrix *
+                             left_backprojected.normalized() << std::endl;
+
+
+    }
+
+    inline bool
+    chiralityTest(const Eigen::Matrix3d &fundamental_matrix,
+                  const Eigen::Matrix3d &rotation_matrix,
+                  const Eigen::Matrix3d &translation_matrix,
+                  const scene::ImagePoint &left_keypoint, const scene::ImagePoint &right_keypoint,
+                  const Eigen::VectorXd &distortion_coefficients = Eigen::VectorXd(),
+                  const Eigen::Matrix3d &calibration = Eigen::Matrix3d::Zero()) {
+        scene::HomogenousWorldPoint left_backprojected, right_backprojected;
+
+        triangulate(fundamental_matrix, rotation_matrix, translation_matrix, left_keypoint.homogeneous(),
+                    right_keypoint.homogeneous(),
+                    left_backprojected, right_backprojected, distortion_coefficients, calibration);
+        bool c1 = left_backprojected[2] * left_backprojected[3] > 0;
+        bool c2 = right_backprojected[2] * right_backprojected[3] > 0;
+        return (c1 && c2);
     }
 }
 #endif //CAMERA_CALIBRATION_UTILITIES_H

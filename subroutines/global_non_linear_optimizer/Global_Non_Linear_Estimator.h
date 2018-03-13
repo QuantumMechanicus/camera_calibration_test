@@ -45,14 +45,14 @@ namespace non_linear_optimization {
             Vector3T wp = Eigen::Map<const Vector3T>(world_point_ptr);
             Matrix3T calibration = Matrix3T::Identity();
             Matrix3T rotation = Eigen::Map<const Matrix3T>(rotation_ptr);
-            Vector3T tranlsation = Eigen::Map<const Vector3T>(translation_ptr);
+            Vector3T translation = Eigen::Map<const Vector3T>(translation_ptr);
             Eigen::Map<Eigen::Matrix<T, 4, 1>> residual(residuals);
 
             calibration(0, 0) = calibration(1, 1) = *focal_length_ptr;
             calibration(0, 2) = principal_point_ptr[0];
             calibration(1, 2) = principal_point_ptr[1];
             Vector2T lip = (calibration * wp).hnormalized();
-            Vector2T rip = (calibration * (rotation * wp + tranlsation)).hnormalized();
+            Vector2T rip = (calibration * (rotation * wp + translation)).hnormalized();
 
             Vector2T ldp = utils::distortion_problem::distortion(lip, lambdas);
             Vector2T rdp = utils::distortion_problem::distortion(rip, lambdas);

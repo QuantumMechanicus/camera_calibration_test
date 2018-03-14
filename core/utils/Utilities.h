@@ -150,9 +150,6 @@ namespace utils {
     }
 
 
-
-
-
     namespace distortion_problem {
 
         double estimateQuantile(std::vector<double> errors,
@@ -234,35 +231,37 @@ namespace utils {
         template<typename T>
         T findDistortedRadius(const Eigen::Matrix<T, Eigen::Dynamic, 1> &distortion_coefficients, T r) {
             Eigen::Matrix<T, Eigen::Dynamic, 1> checked_distortion_coefficients;
-            int count_until_non_zero = static_cast<int>(distortion_coefficients.size() - 1);
+            int count_until_non_zero = static_cast<int>(distortion_coefficients.size()) - 1;
             while (count_until_non_zero > 0 && ceres::abs(distortion_coefficients[count_until_non_zero]) < T(1e-9)) {
                 --count_until_non_zero;
             }
             //std::cout << distortion_coefficients << std::endl;
             //std::cout << count_until_non_zero << std::endl;
             checked_distortion_coefficients = distortion_coefficients.head(count_until_non_zero + 1);
-            auto deg = 2 * checked_distortion_coefficients.size();
-            Eigen::Matrix<T, Eigen::Dynamic, 1> coeff = Eigen::Matrix<T, Eigen::Dynamic, 1>::Zero(deg + 1);
-
-            for (auto k = static_cast<size_t>(checked_distortion_coefficients.size()); k > 0; --k)
-                coeff(2 * k, 0) = r * checked_distortion_coefficients[k - 1];
-
-            coeff(1, 0) = T(-1);
-            coeff(0, 0) = r;
-            coeff /= coeff[deg];
-
             T rd = T(std::numeric_limits<double>::max());
+            auto deg = 2 * checked_distortion_coefficients.size();
+            if (deg > 0) {
+                Eigen::Matrix<T, Eigen::Dynamic, 1> coeff = Eigen::Matrix<T, Eigen::Dynamic, 1>::Zero(deg + 1);
+
+                for (auto k = static_cast<size_t>(checked_distortion_coefficients.size()); k > 0; --k)
+                    coeff(2 * k, 0) = r * checked_distortion_coefficients[k - 1];
+
+                coeff(1, 0) = T(-1);
+                coeff(0, 0) = r;
+                coeff /= coeff[deg];
 
 
-            auto eigenvalues = solvePoly<T>(coeff);
-            for (size_t j = 0; j < eigenvalues.rows(); ++j) {
-                T real = eigenvalues[j].real();
-                T imag = eigenvalues[j].imag();
-                if (ceres::abs(imag) < 1e-9 && real > T(1e-9) && rd > real) {
-                    rd = real;
+                auto eigenvalues = solvePoly<T>(coeff);
+                for (size_t j = 0; j < eigenvalues.rows(); ++j) {
+                    T real = eigenvalues[j].real();
+                    T imag = eigenvalues[j].imag();
+                    if (ceres::abs(imag) < 1e-9 && real > T(1e-9) && rd > real) {
+                        rd = real;
+                    }
+
                 }
-
-            }
+            } else
+                rd = r;
             return rd;
         }
 
@@ -314,11 +313,13 @@ namespace utils {
         }
 
         template<typename T>
-        struct EpipolarCurveDistanceError {
+        struct EpipolarCurveDistanceError2 {
 
             bool operator()(const scene::TImagePoint<T> &u1d, const scene::TImagePoint<T> &u2d,
                             const scene::TFundamentalMatrix<T> &fundamental_matrix,
-                            const Eigen::Matrix<T, Eigen::Dynamic, 1> &distortion_coefficients, T &left_residual,
+                            const Eigen::Matrix<T, Eigen::Dynamic, 1> &distortion_coefficients,
+                            scene::TImagePoint<T> &curve_point1,
+                            scene::TImagePoint<T> &curve_point2, T &left_residual,
                             T &right_residual) {
 
                 bool is_correct = true;
@@ -345,6 +346,14 @@ namespace utils {
                 line_point2 = u2 - right_residual * l2.template block<2, 1>(0, 0) / n2;
 
 
+#if 0
+                CHECK_LT(
+                        (homogeneous_u2.transpose() * fundamental_matrix * line_point1.homogeneous()).norm() / fundamental_matrix.norm(), 1e-6) << "Left point doesn't lie on the line";
+                CHECK_LT(
+                        (homogeneous_u1.transpose() * fundamental_matrix.transpose() * line_point2.homogeneous()).norm() / fundamental_matrix.norm(), 1e-6) << "Right point doesn't lie on the line";
+#endif
+
+
                 T root_r1d_estimation, root_r2d_estimation;
 
 
@@ -363,10 +372,10 @@ namespace utils {
                     return is_correct;
                 } else {
 
-                    scene::TImagePoint<T> curve_point1 = distortion(line_point1, root_r1d_estimation,
-                                                                    distortion_coefficients);
-                    scene::TImagePoint<T> curve_point2 = distortion(line_point2, root_r2d_estimation,
-                                                                    distortion_coefficients);
+                    curve_point1 = distortion(line_point1,
+                                              distortion_coefficients);
+                    curve_point2 = distortion(line_point2,
+                                              distortion_coefficients);
 
                     left_residual = (u1d - curve_point1).norm();
                     right_residual = (u2d - curve_point2).norm();
@@ -378,67 +387,22 @@ namespace utils {
                     }
                     return is_correct;
                 }
-                /*
-                if (distortion_coefficients.rows() > 1) {
+            }
+        };
 
-                    root_r1d_estimation = findDistortedRadius(distortion_coefficients, r1u);
-                    root_r2d_estimation = findDistortedRadius(distortion_coefficients, r2u);
-                    if (root_r1d_estimation < T(0))
-                        root_r1d_estimation += T(2) * epsilon1;
-                    if (root_r2d_estimation < T(0))
-                        root_r2d_estimation += T(2) * epsilon2;
 
-                    int newtone_number_of_iterations = 0;
-                    while (newtone_number_of_iterations < 200) {
-                        newtone_number_of_iterations++;
+        template<typename T>
+        struct EpipolarCurveDistanceError {
 
-                        root_r1d_estimation = root_r1d_estimation -
-                                              (r1u *
-                                               undistortionDenominator(root_r1d_estimation, distortion_coefficients) -
-                                               root_r1d_estimation) /
-                                              (r1u * undistortionDenominatorDerivative(root_r1d_estimation,
-                                                                                       distortion_coefficients) - T(1));
+            bool operator()(const scene::TImagePoint<T> &u1d, const scene::TImagePoint<T> &u2d,
+                            const scene::TFundamentalMatrix<T> &fundamental_matrix,
+                            const Eigen::Matrix<T, Eigen::Dynamic, 1> &distortion_coefficients, T &left_residual,
+                            T &right_residual) {
+                EpipolarCurveDistanceError2<T> cst;
+                scene::TImagePoint<T> dd1, dd2;
+                return cst(u1d, u2d, fundamental_matrix, distortion_coefficients, dd1, dd2, left_residual,
+                           right_residual);
 
-                        root_r2d_estimation = root_r2d_estimation -
-                                              (r2u *
-                                               undistortionDenominator(root_r2d_estimation, distortion_coefficients) -
-                                               root_r2d_estimation) /
-                                              (r2u * undistortionDenominatorDerivative(root_r2d_estimation,
-                                                                                       distortion_coefficients) - T(1));
-
-                    }
-                } else {
-                    root_r1d_estimation = solveQuadric(distortion_coefficients(0), r1u);
-                    root_r2d_estimation = solveQuadric(distortion_coefficients(0), r2u);
-                    std::cout << root_r1d_estimation  << std::endl;
-                    std::cout << findDistortedRadius(distortion_coefficients, r1u) << "!!\n" << std::endl;
-                    std::cout << root_r2d_estimation  << std::endl;
-                    std::cout << findDistortedRadius(distortion_coefficients, r2u) << "!!!\n" << std::endl;
-                }
-
-                if (root_r1d_estimation == T(std::numeric_limits<double>::max()) or
-                    root_r2d_estimation == T(std::numeric_limits<double>::max())) {
-                    left_residual = T(std::numeric_limits<double>::max());
-                    right_residual = T(std::numeric_limits<double>::max());
-                    is_correct = false;
-                    return is_correct;
-                } else {
-
-                    scene::TImagePoint<T> curve_point1 = distortion(line_point1, root_r1d_estimation,
-                                                                    distortion_coefficients);
-                    scene::TImagePoint<T> curve_point2 = distortion(line_point2, root_r2d_estimation,
-                                                                    distortion_coefficients);
-
-                    left_residual = (u1d - curve_point1).norm();
-                    right_residual = (u2d - curve_point2).norm();
-
-                    if (ceres::IsNaN(left_residual) or ceres::IsNaN(right_residual)) {
-                        left_residual = T(std::numeric_limits<double>::max());
-                        right_residual = T(std::numeric_limits<double>::max());
-                        is_correct = false;
-                    }
-                    return is_correct;
-                }*/
             }
         };
     }
@@ -454,16 +418,18 @@ namespace utils {
         CostFunction(const Sophus::SE3d &l2r, const Eigen::VectorXd &dst, const Eigen::Matrix3d &clb,
 
                      const Eigen::Vector2d &l, const Eigen::Vector2d &r) : leftToRight(l2r), distortion_c(dst),
-                                                                           calibration(clb), lft(l), rht(r) {}
+                                                                           calibration(clb), lft(l), rht(r) {
+        }
 
         template<typename T>
         bool operator()(const T *point_ptr, T *residuals) const {
             Eigen::Map<const Eigen::Matrix<T, 3, 1>> point(point_ptr);
             Eigen::Map<Eigen::Matrix<T, 4, 1>> rs(residuals);
 
-            rs.template head<2>() = distortion_problem::distortion<T>( (calibration.template cast<T>() * point).hnormalized(),
-                                                                      distortion_c.template cast<T>()) -
-                                    lft.template cast<T>();
+            rs.template head<2>() =
+                    distortion_problem::distortion<T>((calibration.template cast<T>() * point).hnormalized(),
+                                                      distortion_c.template cast<T>()) -
+                    lft.template cast<T>();
             rs.template tail<2>() = distortion_problem::distortion<T>(
                     (calibration.template cast<T>() * (leftToRight.template cast<T>() * point)).hnormalized(),
                     distortion_c.template cast<T>()) - rht.template cast<T>();
@@ -472,7 +438,18 @@ namespace utils {
         }
     };
 
-    inline void triangulate(const Eigen::Matrix3d &bifocal_tensor,
+
+    // returns point in right's coordinate system
+    Eigen::Vector3d triangulate(const Sophus::SE3d &leftToRight,
+                                const Eigen::Vector3d &dirLeft,
+                                const Eigen::Vector3d &dirRight);
+
+    // Returns points lying on curves corresponding to epipolar lines
+    double points_on_curves(const Eigen::Matrix3d &F, const Eigen::VectorXd &distortion, const Eigen::Vector2d &distorted_left, const Eigen::Vector2d &distorted_right, Eigen::Vector2d &distorted_curve_left, Eigen::Vector2d &distorted_curve_right);
+
+
+
+    void triangulate(const Eigen::Matrix3d &bifocal_tensor,
                             const Eigen::Matrix3d &rotation_matrix,
                             const Eigen::Matrix3d &translation_matrix,
                             const scene::HomogenousImagePoint &left_keypoint,
@@ -480,82 +457,8 @@ namespace utils {
                             scene::HomogenousWorldPoint &left_backprojected,
                             scene::HomogenousWorldPoint &right_backprojected,
                             const Eigen::VectorXd &distortion_coefficients = Eigen::VectorXd(),
-                            const Eigen::Matrix3d &calibration = Eigen::Matrix3d::Zero()) {
-
-#if 1
-        Eigen::Vector3d t = utils::inverted_screw_hat(translation_matrix);
-        Sophus::SO3d so3(rotation_matrix);
-        Sophus::SE3d leftToRight = Sophus::SE3d(so3, t);
-
-
-        Eigen::Vector3d dir_left = (leftToRight.so3() * left_keypoint).normalized(),
-                dir_right = right_keypoint.normalized();
-        Eigen::Matrix<double, 3, 2> A;
-        A.col(0) = dir_left;
-        A.col(1) = -dir_right;
-        Eigen::Vector3d b = -leftToRight.translation();
-        Eigen::Vector2d alphas = A.fullPivHouseholderQr().solve(b);
-        Eigen::Vector3d pt = (alphas[0] * dir_left + t + alphas[1] * dir_right) / 2.0;
-        right_backprojected = pt.homogeneous();
-        left_backprojected = (leftToRight.inverse() * pt).homogeneous();
-
-        ceres::Problem problem;
-        problem.AddParameterBlock(left_backprojected.data(), 3);
-        problem.AddResidualBlock(new ceres::AutoDiffCostFunction<CostFunction, 4, 3>(
-                new CostFunction(leftToRight, distortion_coefficients, calibration,
-
-                                 left_keypoint.hnormalized(), right_keypoint.hnormalized())), nullptr,
-                                 left_backprojected.data());
-        ceres::Solver::Options options;
-        //options.max_trust_region_radius = 0.01;
-        options.max_num_iterations = 500;
-        options.linear_solver_type = ceres::DENSE_QR;
-        options.num_threads = 8;
-        options.function_tolerance = 1e-16;
-        options.parameter_tolerance = 1e-16;
-        options.minimizer_progress_to_stdout = true;
-        options.preconditioner_type = ceres::IDENTITY;
-        options.jacobi_scaling = false;
-
-        // Solve
-        ceres::Solver::Summary summary;
-        ceres::Solve(options, &problem, &summary);
-        right_backprojected.template head<3>() = leftToRight * left_backprojected.template head<3>();
-
-
-#else
-        Eigen::Matrix<double, 3, 4> projection_matrix;
-        Eigen::Vector3d translation_vector = utils::inverted_screw_hat(translation_matrix);
-        projection_matrix << rotation_matrix, translation_vector;
-        Eigen::Matrix3d matrixH = Eigen::Matrix3d::Zero();
-        matrixH(0, 0) = 1;
-        matrixH(1, 1) = 1;
-
-        Eigen::Vector3d a = bifocal_tensor.transpose() * right_keypoint;
-        Eigen::Vector3d h1 = matrixH * a;
-        Eigen::Vector3d h2 = matrixH * bifocal_tensor * left_keypoint;
-
-        Eigen::Vector3d b = left_keypoint.cross(h1);
-        Eigen::Vector3d c = right_keypoint.cross(h2);
-
-        a.normalize();
-        b.normalize();
-        Eigen::Vector3d d = a.cross(b);
-        d.normalize();
-
-        Eigen::Vector4d pC = (projection_matrix.transpose() * c);
-
-        left_backprojected[0] = pC[3] * d[0];
-        left_backprojected[1] = pC[3] * d[1];
-        left_backprojected[2] = pC[3] * d[2];
-        left_backprojected[3] = -d.cwiseProduct(pC.template block<3, 1>(0, 0)).sum();
-        Eigen::Vector3d pQ = projection_matrix * left_backprojected / left_backprojected[3];
-        right_backprojected[0] = pQ[0];
-        right_backprojected[1] = pQ[1];
-        right_backprojected[2] = pQ[2];
-        right_backprojected[3] = 1;
-#endif
-    }
+                            const Eigen::Matrix3d &calibration = Eigen::Matrix3d::Zero(),
+    double* reproj_error = nullptr);
 
     inline void triangulate(const Eigen::Matrix3d &bifocal_tensor,
                             const Eigen::Matrix3d &rotation_matrix,
@@ -565,21 +468,20 @@ namespace utils {
                             scene::WorldPoint &left_backprojected,
                             scene::WorldPoint &right_backprojected,
                             const Eigen::VectorXd &distortion_coefficients = Eigen::VectorXd(),
-                            const Eigen::Matrix3d &calibration = Eigen::Matrix3d::Zero()) {
+                            const Eigen::Matrix3d &calibration = Eigen::Matrix3d::Zero(),
+                            double* reproj_error = nullptr) {
+
+
         auto left_backprojected_h = left_backprojected.homogeneous().eval();
         auto right_backprojected_h = right_backprojected.homogeneous().eval();
-        std::cout << "FM: " << right_keypoint.transpose().homogeneous() * bifocal_tensor * left_keypoint.homogeneous()
-                  << std::endl;
+
+
         triangulate(bifocal_tensor, rotation_matrix, translation_matrix, left_keypoint.homogeneous(),
                     right_keypoint.homogeneous(),
-                    left_backprojected_h, right_backprojected_h, distortion_coefficients, calibration);
+                    left_backprojected_h, right_backprojected_h, distortion_coefficients, calibration, reproj_error);
         left_backprojected = left_backprojected_h.hnormalized();
         right_backprojected = right_backprojected_h.hnormalized();
-        std::cout << left_backprojected(2) << " " << right_backprojected(2) << std::endl;
-        std::cout << "E " << right_backprojected.normalized().transpose() * translation_matrix * rotation_matrix *
-                             left_backprojected.normalized() << std::endl;
-
-
+        LOG(INFO) << left_backprojected(2) << " " << right_backprojected(2);
     }
 
     inline bool
@@ -588,12 +490,12 @@ namespace utils {
                   const Eigen::Matrix3d &translation_matrix,
                   const scene::ImagePoint &left_keypoint, const scene::ImagePoint &right_keypoint,
                   const Eigen::VectorXd &distortion_coefficients = Eigen::VectorXd(),
-                  const Eigen::Matrix3d &calibration = Eigen::Matrix3d::Zero()) {
+                  const Eigen::Matrix3d &calibration = Eigen::Matrix3d::Zero(), double *reproj_error = nullptr) {
         scene::HomogenousWorldPoint left_backprojected, right_backprojected;
 
         triangulate(fundamental_matrix, rotation_matrix, translation_matrix, left_keypoint.homogeneous(),
                     right_keypoint.homogeneous(),
-                    left_backprojected, right_backprojected, distortion_coefficients, calibration);
+                    left_backprojected, right_backprojected, distortion_coefficients, calibration, reproj_error);
         bool c1 = left_backprojected[2] * left_backprojected[3] > 0;
         bool c2 = right_backprojected[2] * right_backprojected[3] > 0;
         return (c1 && c2);

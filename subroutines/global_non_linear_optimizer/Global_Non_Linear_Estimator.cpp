@@ -8,10 +8,10 @@ namespace non_linear_optimization {
 
     GlobalNonLinearEstimatorOptions::GlobalNonLinearEstimatorOptions(double quantile_to_minimize,
                                                                      double max_interval,
-                                                                     double image_radius) :
+                                                                     double image_radius, double w, double h) :
             max_interval_(max_interval),
             quantile_to_minimize_(quantile_to_minimize),
-            image_radius_(image_radius) {}
+            image_radius_(image_radius), w_(w), h_(h) {}
 
     void GlobalNonLinearEstimator::estimateImpl() {
         is_estimated_ = true;
@@ -45,7 +45,8 @@ namespace non_linear_optimization {
             auto &kth_rotation = rotations_[kth_pair];
             auto &kth_fm = fundamental_matrices_[kth_pair];
             //TODO to function essintial to fund
-            kth_fm =  calibration_matrix.transpose().inverse()*utils::screw_hat(kth_translation)*kth_rotation.matrix()*calibration_matrix.inverse();
+            kth_fm = calibration_matrix.transpose().inverse() * utils::screw_hat(kth_translation) *
+                     kth_rotation.matrix() * calibration_matrix.inverse();
 
             std::cout << kth_fm << std::endl;
 
@@ -63,7 +64,7 @@ namespace non_linear_optimization {
                                                                      leftToRight, calibration_matrix,
                                                                      options_.quantile_to_minimize_,
                                                                      inliers_ind, options_.image_radius_);
-            std::cout << "Interval:: " << interval << std::endl;
+            std::cout << "Non line Interval:: " << interval << std::endl;
 
             Eigen::Matrix<double, 2, Eigen::Dynamic> i1d, i2d;
             i1d.resize(Eigen::NoChange, inliers_ind.size());
@@ -74,47 +75,44 @@ namespace non_linear_optimization {
             }
             wp[kth_pair].resize(Eigen::NoChange, i1d.cols());
 
-
+            LOG(INFO) << kth_pair << " : " << i1d.cols() << " inliers [out of "
+                      << left_pictures_keypoints_[kth_pair].cols() << "]";
             for (size_t k = 0; k < i1d.cols(); ++k) {
                 auto kth_translation_matrix = utils::screw_hat(kth_translation);
                 scene::WorldPoint right_bprj;
                 scene::WorldPoint left_bprj;
-                std::cout << "Test:: " << calibration_matrix.transpose()*kth_fm*calibration_matrix -
-                        kth_translation_matrix*kth_rotation.matrix()<< std::endl << std::endl;
+                std::cout << "Test:: " << calibration_matrix.transpose() * kth_fm * calibration_matrix -
+                                          kth_translation_matrix * kth_rotation.matrix() << std::endl << std::endl;
+                scene::ImagePoint left_c, right_c;
+
+                kth_fm = calibration_matrix.inverse().transpose() * kth_translation_matrix * kth_rotation.matrix() *
+                         calibration_matrix.inverse();
+
+
                 utils::triangulate(kth_fm, kth_rotation.matrix(), kth_translation_matrix,
                                    utils::distortion_problem::undistortion<double>(i1d.col(k),
                                                                                    lambdas_),
                                    utils::distortion_problem::undistortion<double>(i2d.col(k), lambdas_),
-                                   left_bprj, right_bprj);
+                                   left_bprj, right_bprj, lambdas_.transpose(), calibration_matrix);
                 wp[kth_pair].col(k) = left_bprj;
 
-                std::cout << std::endl;
-
-                std::cout << "Test2:: " <<
-                                        (utils::distortion_problem::undistortion<double>(i2d.col(k),
-                                                                                            lambdas_)
-                                         - (calibration_matrix * right_bprj).hnormalized()).transpose() << std::endl;
-                std::cout << "Test2:: " <<
-                          (utils::distortion_problem::undistortion<double>(i1d.col(k),
-                                                                           lambdas_)
-                           - (calibration_matrix * left_bprj).hnormalized()).transpose() << std::endl;
 
                 std::cout << (utils::distortion_problem::distortion<double>(
                         (calibration_matrix * right_bprj).hnormalized().eval(), lambdas_)
-                              - i2d.col(k)).transpose()* options_.image_radius_ << std::endl;
+                              - i2d.col(k)).transpose() * options_.image_radius_ << std::endl;
 
                 std::cout << (utils::distortion_problem::distortion<double>(
                         (calibration_matrix * left_bprj).hnormalized().eval(), lambdas_)
-                              - i1d.col(k)).transpose()* options_.image_radius_ << std::endl;
+                              - i1d.col(k)).transpose() * options_.image_radius_ << std::endl;
 
+                double *wp_ptr = &wp[kth_pair](0, k);
 
-
-                problem.AddParameterBlock(&wp[kth_pair](0, k), 3);
-
+                problem.AddParameterBlock(wp_ptr, 3);
 
 
                 auto fun = new ceres::DynamicAutoDiffCostFunction<GlobalOptimizerFunctor<>>(
-                        new GlobalOptimizerFunctor<>(i1d.col(k), i2d.col(k), static_cast<int>(number_of_distortion_coefficients),
+                        new GlobalOptimizerFunctor<>(i1d.col(k), i2d.col(k),
+                                                     static_cast<int>(number_of_distortion_coefficients),
                                                      options_.image_radius_));
                 fun->AddParameterBlock(static_cast<int>(number_of_distortion_coefficients));
                 fun->AddParameterBlock(1);
@@ -123,34 +121,77 @@ namespace non_linear_optimization {
                 fun->AddParameterBlock(4);
                 fun->AddParameterBlock(3);
                 fun->SetNumResiduals(4);
-                problem.AddResidualBlock(fun, nullptr, lambda_ptr, focal_ptr, pp_ptr, tr_ptr, rot_ptr, &wp[kth_pair](0, k));
+                problem.AddResidualBlock(fun, new ceres::HuberLoss(5.0), lambda_ptr, focal_ptr, pp_ptr,
+                                         tr_ptr, rot_ptr, wp_ptr);
 
                 ++residuals;
+
+                double *inputs[] = {lambda_ptr, focal_ptr, pp_ptr, tr_ptr, rot_ptr, wp_ptr};
+                Eigen::Vector4d error;
+                fun->Evaluate(inputs, error.data(), nullptr);
+                LOG(INFO) << "Functor returns error: " << error.transpose();
             }
 
         }
-        std::cout << residuals << " points" << std::endl;
-        std::cout << lambdas_ << " --- coefficients before estimation" << std::endl;
+        LOG(INFO) << residuals << " points";
+        LOG(INFO) << lambdas_ << " --- coefficients before estimation";
         ceres::Solver::Options options;
-        //options.max_trust_region_radius = 0.01;
-        options.max_num_iterations = 500;
+        options.max_num_iterations = 1000;
         options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
         options.num_threads = 8;
+        options.num_linear_solver_threads = 8;
         options.function_tolerance = 1e-16;
         options.parameter_tolerance = 1e-16;
         options.minimizer_progress_to_stdout = true;
-        options.preconditioner_type = ceres::IDENTITY;
-        options.jacobi_scaling = false;
+
 
         // Solve
         ceres::Solver::Summary summary;
         ceres::Solve(options, &problem, &summary);
-        std::cout << summary.BriefReport() << std::endl;
-        std::cout << lambdas_ << " --- estimated coefficients" << std::endl;
-        std::cout << focal_length_ << " --- focal length" << std::endl;
-        std::cout << ppx_ << " " << ppy_ << std::endl;
-        std::cout << 2 * atan(1 / focal_length_) * 180 / M_PI << std::endl;
-        std::cout << std::sqrt(summary.final_cost * 2 / residuals) << " final rmse" << std::endl;
+        LOG(INFO) << summary.BriefReport();
+        LOG(INFO) << lambdas_ << " --- estimated coefficients";
+        LOG(INFO) << focal_length_ << " --- focal length";
+        LOG(INFO) << ppx_ << " " << ppy_;
+        LOG(INFO) << 2 * atan(1 / focal_length_) * 180 / M_PI;
+        LOG(INFO) << std::sqrt(summary.final_cost * 2 / residuals) << " final rmse";
+
+        const int FOVS = 6;
+        double w = options_.w_;
+        double h = options_.h_;
+        double r = options_.image_radius_;
+        scene::ImagePoint center(w / 2, h / 2);
+        double fov[FOVS];
+        scene::ImagePoint points[FOVS][2] = {
+                {Eigen::Vector2d(0, 0),     Eigen::Vector2d(w, h)},
+                {Eigen::Vector2d(0, h / 2), Eigen::Vector2d(w, h / 2)},
+                {Eigen::Vector2d(w / 2, 0), Eigen::Vector2d(w / 2, h)},
+                {Eigen::Vector2d(444, h/2), Eigen::Vector2d(6486, h/2)},
+                {Eigen::Vector2d(35, h/2), Eigen::Vector2d(6672, h/2)},
+                {Eigen::Vector2d(176, h/2), Eigen::Vector2d(6813, h/2)}
+        };
+
+        std::string tag[FOVS] = {
+                "DFOV",
+                "HFOV",
+                "VFOV",
+                "MAGICA",
+                        "MAGICB",
+                        "MAGICC"
+        };
+        for (int i = 0; i < FOVS; ++i) {
+            auto undistorted1 = utils::distortion_problem::undistortion<double>((points[i][0] - center) / r, lambdas_);
+            auto undistorted2 = utils::distortion_problem::undistortion<double>((points[i][1] - center) / r, lambdas_);
+
+            Eigen::Vector3d ray1 = (calibration_matrix.inverse() * undistorted1.homogeneous()).normalized(),
+                    ray2 = (calibration_matrix.inverse() * undistorted2.homogeneous()).normalized();
+            LOG(INFO) << tag[i] << ": " << (fov[i] = std::acos(ray1.dot(ray2)) * 180 / M_PI);
+
+
+        }
+        double total = 0.0;
+        for (int i = FOVS - 3; i < FOVS; ++i)
+            total += fov[i];
+        LOG(INFO) << "Total horizontal FOV guesstimate: " << total << " degrees";
         for (size_t kth_pair = 0; kth_pair < number_of_pairs_; ++kth_pair) {
             calibration_matrix.setIdentity();
             calibration_matrix(0, 0) = calibration_matrix(1, 1) = *focal_ptr;

@@ -44,7 +44,7 @@ namespace non_linear_optimization {
             VectorNT lambdas = Eigen::Map<const VectorNT>(lambda_ptr, number_of_distortion_coefficients_);
             Vector3T wp = Eigen::Map<const Vector3T>(world_point_ptr);
             Matrix3T calibration = Matrix3T::Identity();
-            Matrix3T rotation = Eigen::Map<const Matrix3T>(rotation_ptr);
+            Sophus::SO3<T> rotation = Eigen::Map<const Sophus::SO3<T>>(rotation_ptr);
             Vector3T translation = Eigen::Map<const Vector3T>(translation_ptr);
             Eigen::Map<Eigen::Matrix<T, 4, 1>> residual(residuals);
 
@@ -68,9 +68,9 @@ namespace non_linear_optimization {
         double quantile_to_minimize_;
         double image_radius_;
         double max_interval_;
-
+        double w_, h_;
         explicit GlobalNonLinearEstimatorOptions(double quantile_to_minimize = 0.1,
-                                                 double max_interval = 10, double image_radius = 1);
+                                                 double max_interval = 10, double image_radius = 1, double w = 0, double h = 0);
     };
 
     class GlobalNonLinearEstimator

@@ -29,15 +29,7 @@ namespace scene {
         long number_of_points_{};
 
 
-        inline bool
-        chiralityTest(const Eigen::Matrix3d &rotation_matrix,
-                      const Eigen::Matrix3d &translation_matrix,
-                      size_t keypoint_ind) {
-            return utils::chiralityTest(bifocal_tensor_, rotation_matrix, translation_matrix,
-                                        getLeftIntrinsicsPointer()->undistort(i1d.col(keypoint_ind)),
-                                        getRightIntrinsicsPointer()->undistort(i2d.col(keypoint_ind)), getLeftIntrinsicsPointer()->getDistortionCoefficients(),
-            getLeftIntrinsicsPointer()->getCalibrationMatrix());
-        }
+
 
     protected:
 
@@ -60,6 +52,31 @@ namespace scene {
             bifocal_tensor_ = simple_estimation;
         }
 
+        struct costEssentialFunctor {
+            Eigen::Matrix3d fm;
+
+            EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+            costEssentialFunctor(const Eigen::Matrix3d &f) : fm(f) {}
+
+            template<typename T>
+            bool operator()(const T *f_ptr, const T *cx_ptr, const T *cy_ptr, T *residuals) const {
+                Eigen::Matrix<T, 3, 3> K;
+                K.setIdentity();
+                K(0, 0) = K(1, 1) = *f_ptr;
+                K(0, 2) = *cx_ptr;
+                K(1, 2) = *cy_ptr;
+                auto essential_matrix = (K.transpose() * fm.template cast<T>() * K).eval();
+
+                Eigen::Map<Eigen::Matrix<T, 3, 3> > e(residuals);
+
+                e = ((essential_matrix * essential_matrix.transpose() * essential_matrix
+                      - 0.5 * (essential_matrix * essential_matrix.transpose()).trace() * essential_matrix) /
+                     ceres::pow(essential_matrix.norm(), 3));
+                return *f_ptr > T(0.0);
+
+            }
+        };
 
     public:
 
@@ -189,6 +206,37 @@ namespace scene {
             auto left_K = getLeftIntrinsicsPointer()->getCalibrationMatrix();
             auto right_K = getRightIntrinsicsPointer()->getCalibrationMatrix();
 
+
+            /*double f, cx, cy;
+            f = left_K(0, 0);
+            cx = left_K(0, 2);
+            cy = left_K(1, 2);
+            ceres::Problem problem;
+            problem.AddParameterBlock(&f, 1);
+            problem.AddParameterBlock(&cx, 1);
+            problem.AddParameterBlock(&cy, 1);
+
+            problem.AddResidualBlock(new ceres::AutoDiffCostFunction<costEssentialFunctor, 9, 1, 1, 1>(
+                    new costEssentialFunctor(bifocal_tensor_)),
+                                     nullptr, &f, &cx, &cy);
+            std::cout << "Intitial K: \n" << left_K << std::endl;
+            ceres::Solver::Options options;
+            options.max_num_iterations = 500;
+            options.linear_solver_type = ceres::DENSE_QR;
+            options.num_threads = 8;
+            options.function_tolerance = 1e-16;
+            options.parameter_tolerance = 1e-16;
+            options.minimizer_progress_to_stdout = true;
+            options.preconditioner_type = ceres::IDENTITY;
+            options.jacobi_scaling = false;
+
+            // Solve
+            ceres::Solver::Summary summary;
+            ceres::Solve(options, &problem, &summary);
+            std::cout << summary.BriefReport() << std::endl;
+
+            std::cout << "Final: " << f << " " << cx << " " << cy << std::endl;*/
+
             /*Eigen::JacobiSVD<Eigen::Matrix3d> fmatrix_svd(bifocal_tensor_,
                                                           Eigen::ComputeFullU | Eigen::ComputeFullV);
             Eigen::Vector3d singular_values = fmatrix_svd.singularValues();
@@ -224,6 +272,7 @@ namespace scene {
             Eigen::Matrix3d matrixU = svd.matrixU();
             Eigen::Matrix3d matrixV = svd.matrixV();
             Eigen::Matrix3d singVal = svd.singularValues().asDiagonal();
+            std::cout << "Sing values: " << singVal.transpose() << std::endl;
             singVal(0, 0) = singVal(1, 1) = 1;
             singVal(2, 2) = 0;
             Eigen::Matrix3d original_E = essential_matrix;
@@ -270,12 +319,12 @@ namespace scene {
                         break;
                 }
                 std::cout << std::min((essential_matrix.normalized() - (current_translation *
-                                                                           current_rotation).normalized()).norm()
-                        , (essential_matrix.normalized() + (current_translation *
-                                                            current_rotation).normalized()).norm())
+                                                                        current_rotation).normalized()).norm(),
+                                      (essential_matrix.normalized() + (current_translation *
+                                                                        current_rotation).normalized()).norm())
                           << " check" << std::endl;
                 std::cout << std::min((original_E.normalized() - (current_translation *
-                                                               current_rotation).normalized()).norm(),
+                                                                  current_rotation).normalized()).norm(),
                                       (original_E.normalized() + (current_translation *
                                                                   current_rotation).normalized()).norm())
                           << " check_OE" << std::endl;
@@ -286,19 +335,24 @@ namespace scene {
                 double interval = utils::distortion_problem::findInliers(left_keypoints_,
                                                                          right_keypoints_,
                                                                          getLeftIntrinsicsPointer()->getDistortionCoefficients(),
-                                                                         leftToRight,getLeftIntrinsicsPointer()->getCalibrationMatrix(),
+                                                                         leftToRight,
+                                                                         getLeftIntrinsicsPointer()->getCalibrationMatrix(),
                                                                          0.1,
-                                                                         inliers_ind);
+                                                                         inliers_ind, Eigen::Vector2d(getLeftIntrinsicsPointer()->getWidth(), getLeftIntrinsicsPointer()->getHeight()).norm() / 2.0);
+
 
 
                 counter = inliers_ind.size();
+                LOG(INFO) << "Number of points in front of camera " << counter << " Max: " << max_counter;
+
                 if (counter > max_counter) {
                     rotation_matrix = current_rotation;
                     translation_matrix = current_translation;
+                    max_counter = counter;
                 }
             }
             relativeRotation_ = Sophus::SO3d(rotation_matrix);
-            relativeTranslation_ = utils::inverted_screw_hat(translation_matrix);
+            relativeTranslation_ = utils::inverted_screw_hat(translation_matrix).normalized();
 
         }
 

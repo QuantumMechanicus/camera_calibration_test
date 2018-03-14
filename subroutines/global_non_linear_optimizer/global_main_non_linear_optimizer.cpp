@@ -4,8 +4,11 @@
 #include <boost/program_options.hpp>
 #include "Global_Non_Linear_Estimator.h"
 
-int main(int argc, char *argv[]) {
+#include <glog/logging.h>
 
+int main(int argc, char *argv[]) {
+    google::InitGoogleLogging(argv[0]);
+    google::InstallFailureSignalHandler();
     std::vector<std::string> f_infos;
     int number_of_distortion_coefficients;
     int non_linear_iter;
@@ -37,6 +40,7 @@ int main(int argc, char *argv[]) {
         std::cerr << "Error: " << e.what() << std::endl;
         return -2;
     }
+
 
     auto number_of_pairs = f_infos.size();
 
@@ -91,95 +95,86 @@ int main(int argc, char *argv[]) {
     mean_ppx /= number_of_pairs;
     mean_ppy /= number_of_pairs;
     mean_f /= number_of_pairs;
-    mean_f = 0.2;
 
-#if 0
-    for (mean_f = 1.2; mean_f >= 0.1; mean_f -= 0.05) {
-#else
-    for (int i = 0; i < 1; ++i ) {
-        mean_f = (stereo_pairs[0].getLeftIntrinsics().getFocalLength() +
-                  stereo_pairs[1].getRightIntrinsics().getFocalLength()) / 2.0;//1.0 / std::tan(100.0 * M_PI / 180.0 / 2.0);
-#endif
-        Eigen::RowVectorXd distortion_coefficients(number_of_distortion_coefficients);
-        distortion_coefficients.setZero();
-        distortion_coefficients.head(
-                std::min(static_cast<int>(mean_distortion_coefficient.rows()),
-                         number_of_distortion_coefficients)) = mean_distortion_coefficient.head(
-                std::min(static_cast<int>(mean_distortion_coefficient.rows()), number_of_distortion_coefficients));
-        std::shared_ptr<intrinsics::DynamicDivisionModel> common_intrinsics_parameters = std::make_shared<intrinsics::DynamicDivisionModel>(
-                distortion_coefficients,
-                w, h, mean_f, mean_ppx, mean_ppy);
 
-        scene::StdVector<scene::FundamentalMatrix> fundamental_matrices(number_of_pairs);
-        scene::StdVector<Eigen::Vector3d> translations(number_of_pairs);
-        scene::StdVector<Sophus::SO3d> rotations(number_of_pairs);
-        scene::StdVector<scene::ImagePoints> left_pictures_keypoints(number_of_pairs), right_pictures_keypoints(
-                number_of_pairs);
-        double image_radius = std::sqrt((w / 2) * (w / 2) + (h / 2) * (h / 2));
-        Eigen::Matrix3d calibration_matrix = common_intrinsics_parameters->getCalibrationMatrix();
+    Eigen::RowVectorXd distortion_coefficients(number_of_distortion_coefficients);
+    distortion_coefficients.setZero();
+    distortion_coefficients.head(
+            std::min(static_cast<int>(mean_distortion_coefficient.rows()),
+                     number_of_distortion_coefficients)) = mean_distortion_coefficient.head(
+            std::min(static_cast<int>(mean_distortion_coefficient.rows()), number_of_distortion_coefficients));
+    std::shared_ptr<intrinsics::DynamicDivisionModel> common_intrinsics_parameters = std::make_shared<intrinsics::DynamicDivisionModel>(
+            distortion_coefficients,
+            w, h, mean_f, 0, 0);
 
-        std::cout << calibration_matrix << std::endl;
-        for (size_t k = 0; k < number_of_pairs; ++k) {
-            stereo_pairs[k].estimateLeftCamera(common_intrinsics_parameters);
-            stereo_pairs[k].estimateRightCamera(common_intrinsics_parameters);
-            left_pictures_keypoints[k] = stereo_pairs[k].getLeftKeypoints();
-            right_pictures_keypoints[k] = stereo_pairs[k].getRightKeypoints();
-            fundamental_matrices[k] = stereo_pairs[k].getFundamentalMatrix();
-            Eigen::Matrix3d hhh = stereo_pairs[k].getEssentialMatrix();
+    scene::StdVector<scene::FundamentalMatrix> fundamental_matrices(number_of_pairs);
+    scene::StdVector<Eigen::Vector3d> translations(number_of_pairs);
+    scene::StdVector<Sophus::SO3d> rotations(number_of_pairs);
+    scene::StdVector<scene::ImagePoints> left_pictures_keypoints(number_of_pairs), right_pictures_keypoints(
+            number_of_pairs);
+    double image_radius = std::sqrt((w / 2) * (w / 2) + (h / 2) * (h / 2));
+    Eigen::Matrix3d calibration_matrix = common_intrinsics_parameters->getCalibrationMatrix();
 
-            stereo_pairs[k].recoverRelativeMotion();
+    std::cout << calibration_matrix << std::endl;
+    for (size_t k = 0; k < number_of_pairs; ++k) {
+        stereo_pairs[k].estimateLeftCamera(common_intrinsics_parameters);
+        stereo_pairs[k].estimateRightCamera(common_intrinsics_parameters);
+        left_pictures_keypoints[k] = stereo_pairs[k].getLeftKeypoints();
+        right_pictures_keypoints[k] = stereo_pairs[k].getRightKeypoints();
+        fundamental_matrices[k] = stereo_pairs[k].getFundamentalMatrix();
+        std::vector<size_t> inliers_ind;
+        double interval = utils::distortion_problem::findInliers(stereo_pairs[k].getLeftKeypoints(),
+                                                                 stereo_pairs[k].getRightKeypoints(),
+                                                                 stereo_pairs[k].getLeftIntrinsicsPointer()->getDistortionCoefficients(),
+                                                                 fundamental_matrices[k],
+                                                                 0.1,
+                                                                 inliers_ind, image_radius);
+        std::cout << "Interval: " << interval << " " << image_radius << std::endl;
 
-            translations[k] = stereo_pairs[k].getRelativeTranslation();
-            rotations[k] = stereo_pairs[k].getRelativeRotation();
+        //Eigen::Matrix3d hhh = stereo_pairs[k].getEssentialMatrix();
 
-            std::cout << fundamental_matrices[k] << std::endl;
-            Eigen::Matrix3d fff =
-                    stereo_pairs[k].getRightIntrinsicsPointer()->getCalibrationMatrix().transpose().inverse() *
-                    utils::screw_hat(translations[k]) * rotations[k].matrix() *
-                    stereo_pairs[k].getLeftIntrinsicsPointer()->getCalibrationMatrix().inverse();
+        stereo_pairs[k].recoverRelativeMotion();
 
-            std::cout << fff / fff(2, 2) << std::endl;
-            std::cout << fundamental_matrices[k] << std::endl;
-        }
-        std::cout << "FCL: " << common_intrinsics_parameters->getFocalLength() << std::endl;
+        translations[k] = stereo_pairs[k].getRelativeTranslation();
+        rotations[k] = stereo_pairs[k].getRelativeRotation();
 
-        non_linear_optimization::GlobalNonLinearEstimatorOptions options(percent_of_inliers, 100, image_radius);
-        non_linear_optimization::GlobalNonLinearEstimator estimator(left_pictures_keypoints, right_pictures_keypoints,
-                                                                    common_intrinsics_parameters->getDistortionCoefficients(),
-                                                                    rotations, translations,
-                                                                    common_intrinsics_parameters->getFocalLength(),
-                                                                    common_intrinsics_parameters->getPrincipalPointX(),
-                                                                    common_intrinsics_parameters->getPrincipalPointY(),
-                                                                    options);
+        std::cout << fundamental_matrices[k] << std::endl;
+        Eigen::Matrix3d fff =
+                stereo_pairs[k].getRightIntrinsicsPointer()->getCalibrationMatrix().transpose().inverse() *
+                utils::screw_hat(translations[k]) * rotations[k].matrix() *
+                stereo_pairs[k].getLeftIntrinsicsPointer()->getCalibrationMatrix().inverse();
 
-        //TODO graph focal length estiamtion vs started focal length
-        common_intrinsics_parameters->estimateParameter(estimator);
-        scene::DynamicDivisionModelScene scene(cameras, stereo_pairs);
-        scene.estimateStereoPairs(estimator);
+        std::cout << fff / fff(2, 2) << std::endl;
+        std::cout << fundamental_matrices[k] << std::endl;
+        Sophus::SE3d mm(stereo_pairs[k].getRelativeRotation(), stereo_pairs[k].getRelativeTranslation());
+        double interval2 = utils::distortion_problem::findInliers(stereo_pairs[k].getLeftKeypoints(),
+                                                                  stereo_pairs[k].getRightKeypoints(),
+                                                                  stereo_pairs[k].getLeftIntrinsicsPointer()->getDistortionCoefficients(),
+                                                                  mm,
+                                                                  stereo_pairs[k].getLeftIntrinsicsPointer()->getCalibrationMatrix(),
+                                                                  0.1,
+                                                                  inliers_ind, image_radius);
+        std::cout << "Interval2: " << interval2 << " " << image_radius << std::endl;
     }
-    //scene.saveScene(archivers);
-    //std::cout << "COMD: " << common_intrinsics_parameters->getDistortionCoefficients() << std::endl;
-    /*for (size_t k = 0; k < number_of_pairs; ++k) {
-        std::vector<size_t> inl;
-        auto &ppl = stereo_pairs[k].getLeftKeypoints();
-        auto &ppr = stereo_pairs[k].getRightKeypoints();
-        auto dres = utils::distortion_problem::findInliers(ppl, ppr,
-                                                           common_intrinsics_parameters->getDistortionCoefficients(),
-                                                           stereo_pairs[k].getFundamentalMatrix(), 0.1, inl,
-                                                           image_radius);
+    std::cout << "FCL: " << common_intrinsics_parameters->getFocalLength() << std::endl;
 
-        Eigen::Matrix<double, 2, Eigen::Dynamic> inll(2, inl.size());
-        Eigen::Matrix<double, 2, Eigen::Dynamic> inlr(2, inl.size());
-        for (size_t l = 0; l < inl.size(); ++l) {
-            inll.col(l) = utils::distortion_problem::undistortion<double>(ppl.col(inl[l]),
-                                                                  common_intrinsics_parameters->getDistortionCoefficients());
-            inlr.col(l) = utils::distortion_problem::undistortion<double>(ppr.col(inl[l]),
-                                                                  common_intrinsics_parameters->getDistortionCoefficients());
-        }
-        utils::saveMatrix(std::to_string(k) + "th_pair_inliers_l", inll.transpose().eval(), true);
-        utils::saveMatrix(std::to_string(k) + "th_pair_inliers_r", inlr.transpose().eval(), true);
+    non_linear_optimization::GlobalNonLinearEstimatorOptions options(percent_of_inliers, 100, image_radius, common_intrinsics_parameters->getWidth(),
+    common_intrinsics_parameters->getHeight());
+    non_linear_optimization::GlobalNonLinearEstimator estimator(left_pictures_keypoints, right_pictures_keypoints,
+                                                                common_intrinsics_parameters->getDistortionCoefficients(),
+                                                                rotations, translations,
+                                                                common_intrinsics_parameters->getFocalLength(),
+                                                                common_intrinsics_parameters->getPrincipalPointX(),
+                                                                common_intrinsics_parameters->getPrincipalPointY(),
+                                                                options);
 
-    }*/
+    //TODO graph focal length estiamtion vs started focal length
+    common_intrinsics_parameters->estimateParameter(estimator);
+    scene::DynamicDivisionModelScene scene(cameras, stereo_pairs);
+    scene.estimateStereoPairs(estimator);
+
+    scene.saveScene(archivers);
+
 
     return 0;
 }

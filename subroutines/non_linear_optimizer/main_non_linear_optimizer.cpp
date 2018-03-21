@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
 
     std::vector<scene::DynamicDivisionModelStereoPair> stereo_pairs(number_of_pairs);
 
-    double mean_distortion_coefficient = 0;
+    Eigen::VectorXd mean_distortion_coefficient;
     double mean_ppx = 0;
     double mean_ppy = 0;
     double mean_f = 0;
@@ -58,11 +58,18 @@ int main(int argc, char *argv[]) {
         archivers[k].parse(f_infos[k]);
         scene::DynamicDivisionModelStereoPair stereo_pair;
         stereo_pair.loadScene(archivers[k], cameras);
+        std::cout << "Focal: " << stereo_pair.getLeftIntrinsicsPointer()->getFocalLength() << std::endl;
+        std::cout << "Focal: " << stereo_pair.getRightIntrinsicsPointer()->getFocalLength() << std::endl;
+
         assert(stereo_pair.getLeftIntrinsicsPointer()->getNumberOfCoefficients() > 0 &&
                stereo_pair.getRightIntrinsicsPointer()->getNumberOfCoefficients() > 0 && "Incorrect intrinsics data");
         stereo_pairs[k] = stereo_pair;
-        mean_distortion_coefficient += (stereo_pair.getLeftIntrinsics().getDistortionCoefficients()(0) +
-                                        stereo_pair.getRightIntrinsics().getDistortionCoefficients()(0)) / 2.0;
+        if (k == 0)
+            mean_distortion_coefficient = (stereo_pair.getLeftIntrinsics().getDistortionCoefficients() +
+                                           stereo_pair.getRightIntrinsics().getDistortionCoefficients()) / 2.0;
+        else
+            mean_distortion_coefficient += (stereo_pair.getLeftIntrinsics().getDistortionCoefficients() +
+                                            stereo_pair.getRightIntrinsics().getDistortionCoefficients()) / 2.0;
         mean_ppx += (stereo_pair.getLeftIntrinsics().getPrincipalPointX() +
                      stereo_pair.getRightIntrinsics().getPrincipalPointX()) / 2.0;
         mean_ppy += (stereo_pair.getLeftIntrinsics().getPrincipalPointY() +
@@ -82,14 +89,14 @@ int main(int argc, char *argv[]) {
     }
     w /= number_of_pairs;
     h /= number_of_pairs;
-
+    std::cout << mean_f << std::endl;
     mean_distortion_coefficient /= number_of_pairs;
     mean_ppx /= number_of_pairs;
     mean_ppy /= number_of_pairs;
     mean_f /= number_of_pairs;
-    Eigen::RowVectorXd distortion_coefficients(number_of_distortion_coefficients);
+    Eigen::VectorXd distortion_coefficients(number_of_distortion_coefficients);
     distortion_coefficients.setConstant(0);
-    distortion_coefficients[0] = mean_distortion_coefficient;
+    distortion_coefficients = mean_distortion_coefficient.head(number_of_distortion_coefficients);
 
     std::shared_ptr<intrinsics::DynamicDivisionModel> common_intrinsics_parameters = std::make_shared<intrinsics::DynamicDivisionModel>(
             distortion_coefficients,

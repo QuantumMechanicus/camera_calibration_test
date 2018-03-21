@@ -54,7 +54,7 @@ namespace intrinsics {
             *this = std::move(estimator);
         }
 
-        void estimateParameterImpl(estimators::AbstractEstimator<Eigen::Matrix<double, 1, N>> &estimator) {
+        void estimateParameterImpl(estimators::AbstractEstimator<Eigen::Matrix<double, N, 1>> &estimator) {
 
             lambdas_ = estimator.getEstimation();
         }

@@ -59,7 +59,8 @@ namespace non_linear_optimization {
 
             residual.template head<2>() = (ldp - left_point_.cast<T>()) * image_radius_;
             residual.template tail<2>() = (rdp - right_point_.cast<T>()) * image_radius_;
-
+            if (wp(2) < T(0.0))
+                residual = T(std::numeric_limits<double>::max())*Eigen::Matrix<T, 4, 1>::Ones();
             return true;
         }
     };
@@ -74,15 +75,16 @@ namespace non_linear_optimization {
     };
 
     class GlobalNonLinearEstimator
-            : public estimators::AbstractEstimator<Eigen::RowVectorXd>,
-              public estimators::AbstractEstimator<scene::FundamentalMatrices> {
+            : public estimators::AbstractEstimator<Eigen::VectorXd>,
+              public estimators::AbstractEstimator<scene::FundamentalMatrices>,
+    public estimators::AbstractEstimator<intrinsics::FocalLength >{
 
         scene::StdVector<Sophus::SO3d> rotations_;
         scene::StdVector<Eigen::Vector3d> translations_;
         scene::FundamentalMatrices fundamental_matrices_;
         double focal_length_;
         double ppx_, ppy_;
-        Eigen::RowVectorXd lambdas_;
+        Eigen::VectorXd lambdas_;
         scene::StdVector<scene::ImagePoints> left_pictures_keypoints_, right_pictures_keypoints_;
         size_t number_of_pairs_;
         bool is_estimated_;
@@ -93,18 +95,20 @@ namespace non_linear_optimization {
 
         void estimateImpl() override;
 
-        void getEstimationImpl(Eigen::RowVectorXd &result) override;
+        void getEstimationImpl(Eigen::VectorXd &result) override;
 
         void getEstimationImpl(scene::FundamentalMatrices &result) override;
 
+        void getEstimationImpl(intrinsics::FocalLength &result) override;
+
     public:
-        GlobalNonLinearEstimator(scene::StdVector<scene::ImagePoints> left_pictures_keypoints,
-                                 scene::StdVector<scene::ImagePoints> right_pictures_keypoints,
-                                 Eigen::RowVectorXd lambdas,
-                                 scene::StdVector<Sophus::SO3d> rotations,
-                                 scene::StdVector<Eigen::Vector3d> translations,
-                                 double focal_length, double ppx, double ppy,
-                                 GlobalNonLinearEstimatorOptions options = GlobalNonLinearEstimatorOptions());
+        GlobalNonLinearEstimator(const scene::StdVector<scene::ImagePoints> &left_pictures_keypoints,
+                                                           const scene::StdVector<scene::ImagePoints> &right_pictures_keypoints,
+                                                           const Eigen::VectorXd &lambdas,
+                                                           const scene::StdVector<Sophus::SO3d> &rotations,
+                                                           const scene::StdVector<Eigen::Vector3d> &translations,
+                                                           double focal_length, double ppx, double ppy,
+                                                           GlobalNonLinearEstimatorOptions options = GlobalNonLinearEstimatorOptions());
 
 
         bool isEstimated() const override;

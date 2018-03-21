@@ -109,6 +109,7 @@ namespace estimators {
             }
         }
         std::cout << "Minimal quantile: " << min_quantile << "\nEstimated coefficients:" << lambdas_(0) << std::endl;
+        std::cout << "Interval: " << utils::distortion_problem::estimateConfidenceInterval(min_quantile, options_.quantile_to_minimize) << std::endl;
     }
 
     void GroebnerDivisionModelEstimator::getEstimationImpl(Eigen::Matrix<double,1,1> &result) {

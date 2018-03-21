@@ -92,11 +92,11 @@ namespace non_linear_optimization {
     };
 
     class NonLinearEstimator
-            : public estimators::AbstractEstimator<Eigen::RowVectorXd>,
+            : public estimators::AbstractEstimator<Eigen::VectorXd>,
               public estimators::AbstractEstimator<scene::FundamentalMatrices> {
 
         scene::FundamentalMatrices fundamental_matrices_;
-        Eigen::RowVectorXd lambdas_;
+        Eigen::VectorXd lambdas_;
         scene::StdVector<scene::ImagePoints> left_pictures_keypoints_, right_pictures_keypoints_;
         size_t number_of_pairs_;
         bool is_estimated_;
@@ -106,15 +106,15 @@ namespace non_linear_optimization {
 
         void estimateImpl() override;
 
-        void getEstimationImpl(Eigen::RowVectorXd &result) override;
+        void getEstimationImpl(Eigen::VectorXd &result) override;
 
         void getEstimationImpl(scene::FundamentalMatrices &result) override;
 
     public:
-        NonLinearEstimator(scene::StdVector<scene::ImagePoints> left_pictures_keypoints,
-                           scene::StdVector<scene::ImagePoints> right_pictures_keypoints,
-                           scene::StdVector<scene::FundamentalMatrix> fundamental_matrices,
-                           Eigen::RowVectorXd distortion_coefficients,
+        NonLinearEstimator(const scene::StdVector<scene::ImagePoints> &left_pictures_keypoints,
+                           const scene::StdVector<scene::ImagePoints> &right_pictures_keypoints,
+                           const scene::StdVector<scene::FundamentalMatrix> &fundamental_matrices,
+                           const Eigen::VectorXd &distortion_coefficients,
                            NonLinearEstimatorOptions options = NonLinearEstimatorOptions());
 
 

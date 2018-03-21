@@ -449,7 +449,7 @@ namespace utils {
 
 
 
-    void triangulate(const Eigen::Matrix3d &bifocal_tensor,
+    void triangulate2(const Eigen::Matrix3d &bifocal_tensor,
                             const Eigen::Matrix3d &rotation_matrix,
                             const Eigen::Matrix3d &translation_matrix,
                             const scene::HomogenousImagePoint &left_keypoint,
@@ -476,12 +476,12 @@ namespace utils {
         auto right_backprojected_h = right_backprojected.homogeneous().eval();
 
 
-        triangulate(bifocal_tensor, rotation_matrix, translation_matrix, left_keypoint.homogeneous(),
+        triangulate2(bifocal_tensor, rotation_matrix, translation_matrix, left_keypoint.homogeneous(),
                     right_keypoint.homogeneous(),
                     left_backprojected_h, right_backprojected_h, distortion_coefficients, calibration, reproj_error);
         left_backprojected = left_backprojected_h.hnormalized();
         right_backprojected = right_backprojected_h.hnormalized();
-        LOG(INFO) << left_backprojected(2) << " " << right_backprojected(2);
+        //LOG(INFO) << left_backprojected(2) << " ! " << right_backprojected(2);
     }
 
     inline bool
@@ -493,11 +493,12 @@ namespace utils {
                   const Eigen::Matrix3d &calibration = Eigen::Matrix3d::Zero(), double *reproj_error = nullptr) {
         scene::HomogenousWorldPoint left_backprojected, right_backprojected;
 
-        triangulate(fundamental_matrix, rotation_matrix, translation_matrix, left_keypoint.homogeneous(),
+        triangulate2(fundamental_matrix, rotation_matrix, translation_matrix, left_keypoint.homogeneous(),
                     right_keypoint.homogeneous(),
                     left_backprojected, right_backprojected, distortion_coefficients, calibration, reproj_error);
         bool c1 = left_backprojected[2] * left_backprojected[3] > 0;
         bool c2 = right_backprojected[2] * right_backprojected[3] > 0;
+        LOG(INFO) <<c1 << " ! chirality " << c2;
         return (c1 && c2);
     }
 }

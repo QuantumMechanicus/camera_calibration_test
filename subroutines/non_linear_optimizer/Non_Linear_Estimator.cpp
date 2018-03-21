@@ -21,7 +21,7 @@ namespace non_linear_optimization {
 
         is_estimated_ = true;
         int residuals = 0;
-        long number_of_distortion_coefficients = lambdas_.cols();
+        long number_of_distortion_coefficients = lambdas_.rows();
         std::vector<bool> skip(number_of_pairs_, false);
         for (size_t iters = 0; iters < options_.number_of_non_linear_iters_; ++iters) {
             ceres::Problem problem;
@@ -49,6 +49,7 @@ namespace non_linear_optimization {
                                                                          kth_fundamental_matrix,
                                                                          options_.quantile_to_minimize_,
                                                                          inliers_ind, options_.image_radius_);
+
                 std::cout << "Interval: " << interval << " " << options_.image_radius_ << std::endl;
                 if (interval > options_.max_interval_) {
                     skip[kth_pair] = true;
@@ -105,7 +106,7 @@ namespace non_linear_optimization {
 
     }
 
-    void NonLinearEstimator::getEstimationImpl(Eigen::RowVectorXd &result) {
+    void NonLinearEstimator::getEstimationImpl(Eigen::VectorXd &result) {
         result = lambdas_;
     }
 
@@ -123,15 +124,15 @@ namespace non_linear_optimization {
         result = fundamental_matrices_;
     }
 
-    NonLinearEstimator::NonLinearEstimator(scene::StdVector<scene::ImagePoints> left_pictures_keypoints,
-                                           scene::StdVector<scene::ImagePoints> right_pictures_keypoints,
-                                           scene::StdVector<scene::FundamentalMatrix> fundamental_matrices,
-                                           Eigen::RowVectorXd distortion_coefficients,
+    NonLinearEstimator::NonLinearEstimator(const scene::StdVector<scene::ImagePoints> &left_pictures_keypoints,
+                                           const scene::StdVector<scene::ImagePoints> &right_pictures_keypoints,
+                                           const scene::StdVector<scene::FundamentalMatrix> &fundamental_matrices,
+                                           const Eigen::VectorXd &distortion_coefficients,
                                            NonLinearEstimatorOptions options) :
-            left_pictures_keypoints_(std::move(left_pictures_keypoints)),
-            right_pictures_keypoints_(std::move(right_pictures_keypoints)),
-            lambdas_(std::move(distortion_coefficients)),
-            fundamental_matrices_(std::move(fundamental_matrices)),
+            left_pictures_keypoints_((left_pictures_keypoints)),
+            right_pictures_keypoints_((right_pictures_keypoints)),
+            lambdas_((distortion_coefficients)),
+            fundamental_matrices_((fundamental_matrices)),
             is_estimated_(false),
             options_(options) {
         number_of_pairs_ = left_pictures_keypoints_.size();

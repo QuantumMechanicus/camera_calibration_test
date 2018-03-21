@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
     mean_f /= number_of_pairs;
 
 
-    Eigen::RowVectorXd distortion_coefficients(number_of_distortion_coefficients);
+    Eigen::VectorXd distortion_coefficients(number_of_distortion_coefficients);
     distortion_coefficients.setZero();
     distortion_coefficients.head(
             std::min(static_cast<int>(mean_distortion_coefficient.rows()),
@@ -168,11 +168,12 @@ int main(int argc, char *argv[]) {
                                                                 common_intrinsics_parameters->getPrincipalPointY(),
                                                                 options);
 
-    //TODO graph focal length estiamtion vs started focal length
-    common_intrinsics_parameters->estimateParameter(estimator);
+
+    common_intrinsics_parameters->template estimateParameter<estimators::AbstractEstimator<double>>(estimator);
+    common_intrinsics_parameters->template estimateParameter<estimators::AbstractEstimator<Eigen::VectorXd>>(estimator);
     scene::DynamicDivisionModelScene scene(cameras, stereo_pairs);
     scene.estimateStereoPairs(estimator);
-
+    
     scene.saveScene(archivers);
 
 

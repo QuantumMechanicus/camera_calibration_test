@@ -349,11 +349,12 @@ namespace scene {
                     rotation_matrix = current_rotation;
                     translation_matrix = current_translation;
                     max_counter = counter;
+                    LOG(INFO) << "Chir max: " << utils::inverted_screw_hat(current_translation).transpose() << "\n" << max_counter;
                 }
             }
             relativeRotation_ = Sophus::SO3d(rotation_matrix);
             relativeTranslation_ = utils::inverted_screw_hat(translation_matrix).normalized();
-
+            LOG(INFO) << "res Chir max: " << utils::inverted_screw_hat(current_translation).transpose() << "\n" << max_counter;
         }
 
         const std::shared_ptr<TIntrinsicsModel> getLeftIntrinsicsPointer() const {

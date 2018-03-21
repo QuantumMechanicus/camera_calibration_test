@@ -9,16 +9,16 @@ namespace utils {
 
         double estimateQuantile(std::vector<double> errors,
                                 double expected_percent_of_inliers) {
+            int num = int(errors.size() * expected_percent_of_inliers) ;
 
-            std::nth_element(errors.begin(), errors.begin() + int(errors.size() * expected_percent_of_inliers),
-                             errors.end());
-            double quantile = errors[int(errors.size() * expected_percent_of_inliers) + 1];
+            std::sort(errors.begin(), errors.end());
+            double quantile = errors[num];
             return quantile;
         }
 
         double estimateConfidenceInterval(double quantile, double expected_percent_of_inliers) {
-            return quantile * boost::math::erfc_inv((0.95 + 1.0)) /
-                   boost::math::erfc_inv((expected_percent_of_inliers + 1.0));
+            return 10;/*quantile * boost::math::erfc_inv((0.95 + 1.0)) /
+                   boost::math::erfc_inv((expected_percent_of_inliers + 1.0));*/
 
         }
 
@@ -54,19 +54,20 @@ namespace utils {
 #else
                                       for (int i = 0; i < u1d.cols(); ++i) {
 #endif
-                                          double err = std::numeric_limits<double>::max();
+                                      double err = std::numeric_limits<double>::max();
 
-                                          chiralityTest(fundamental_matrix, rotation_matrix, translation_matrix,
-                                                                      undistortion<double>(u1d.col(i), distortion_coefficients),
-                                                                      undistortion<double>(u2d.col(i),
-                                                                                           distortion_coefficients), distortion_coefficients, calibration, &err) ? 1 : 0;
+                                      chiralityTest(fundamental_matrix, rotation_matrix, translation_matrix,
+                                                    undistortion<double>(u1d.col(i), distortion_coefficients),
+                                                    undistortion<double>(u2d.col(i),
+                                                                         distortion_coefficients),
+                                                    distortion_coefficients, calibration, &err) ? 1 : 0;
 
-                                          double px_err = err * image_r;
-                                          errors[i] = px_err;
-                                      }
-#if 1
+                                      double px_err = err * image_r;
+                                      errors[i] = px_err;
                                   }
-                                  );
+#if 1
+                              }
+            );
 #endif
 #endif
             double quantile = estimateQuantile(errors, expected_percent_of_inliers);
@@ -82,28 +83,32 @@ namespace utils {
                               [&](auto range) {
                                   for (int i = range.begin(); i != range.end(); ++i) {
 #else
-            for (int i = 0; i < u1d.cols(); ++i) {
+                                      for (int i = 0; i < u1d.cols(); ++i) {
 #endif
                                       if (errors[i] >= interval) {
-                                        validity[i] = 0;
+                                          validity[i] = 0;
                                           ++invalid_threshold;
                                           continue;
                                       }
                                       double err = std::numeric_limits<double>::max();
-                                      validity[i] = chiralityTest(fundamental_matrix, rotation_matrix, translation_matrix,
-                                                                                          undistortion<double>(u1d.col(i), distortion_coefficients),
-                                                                                          undistortion<double>(u2d.col(i),
-                                                                                                               distortion_coefficients), distortion_coefficients, calibration, &err) ? 1 : 0;
+                                      validity[i] = chiralityTest(fundamental_matrix, rotation_matrix,
+                                                                  translation_matrix,
+                                                                  undistortion<double>(u1d.col(i),
+                                                                                       distortion_coefficients),
+                                                                  undistortion<double>(u2d.col(i),
+                                                                                       distortion_coefficients),
+                                                                  distortion_coefficients, calibration, &err) ? 1 : 0;
 
-                                                                 double px_err = err * image_r;
+                                      double px_err = err * image_r;
                                       if (!validity[i]) {
-                                        ++invalid_chirality;
+                                          ++invalid_chirality;
                                       }
 
                                       if (px_err > interval * 5.0) {
                                           validity[i] = 0;
                                           ++invalid_reprojection_threshold;
-                                          LOG(WARNING) << "Expected error: " << interval << " observed error: " << px_err;
+                                          LOG(WARNING) << "Expected error: " << interval << " observed error: "
+                                                       << px_err;
                                           continue;
                                       }
                                       LOG(INFO) << "Reprojection error: " << px_err;
@@ -118,7 +123,9 @@ namespace utils {
                     inliers_indices.push_back(k);
                 }
             }
-            LOG(INFO) << "Inliers: " << inliers_indices.size() << " [out of: " << u1d.cols() << "]; " << invalid_threshold << "/" << invalid_chirality << "/" << invalid_reprojection_threshold << " thresh/chir/repr";
+            LOG(INFO) << "Inliers: " << inliers_indices.size() << " [out of: " << u1d.cols() << "]; "
+                      << invalid_threshold << "/" << invalid_chirality << "/" << invalid_reprojection_threshold
+                      << " thresh/chir/repr";
             return interval;
 
         }
@@ -148,61 +155,81 @@ namespace utils {
                     inliers_indices.push_back(k);
                 }
             }
+            std::cout << "Quant: " << quantile << std::endl;
+            std::cout << "Inter: " << interval << std::endl;
+
             return interval;
 
         }
 
 
     }
-    double points_on_curves(const Eigen::Matrix3d &F, const Eigen::VectorXd &distortion, const Eigen::Vector2d &distorted_left, const Eigen::Vector2d &distorted_right, Eigen::Vector2d &distorted_curve_left, Eigen::Vector2d &distorted_curve_right) {
+
+    double
+    points_on_curves(const Eigen::Matrix3d &F, const Eigen::VectorXd &distortion, const Eigen::Vector2d &distorted_left,
+                     const Eigen::Vector2d &distorted_right, Eigen::Vector2d &distorted_curve_left,
+                     Eigen::Vector2d &distorted_curve_right) {
         double residual_left, residual_right;
         distortion_problem::EpipolarCurveDistanceError2<double> cst;
-        cst(distorted_left, distorted_right, F, distortion, distorted_curve_left, distorted_curve_right, residual_left, residual_right);
+        cst(distorted_left, distorted_right, F, distortion, distorted_curve_left, distorted_curve_right, residual_left,
+            residual_right);
         return std::pow(residual_left, 2) + std::pow(residual_right, 2);
     }
 
     Eigen::Vector3d triangulate(const Sophus::SE3d &leftToRight,
                                 const Eigen::Vector3d &dirLeft,
                                 const Eigen::Vector3d &dirRight) {
-    Eigen::Vector3d dir_left = (leftToRight.so3() * dirLeft).normalized(),
-            dir_right = dirRight.normalized(),
-            t = leftToRight.translation();
-    Eigen::Matrix<double, 3, 2> A;
-    A.col(0) = dir_left;
-    A.col(1) = -dir_right;
-    Eigen::Vector3d b = -leftToRight.translation();
-    Eigen::Vector2d alphas = A.fullPivHouseholderQr().solve(b);
-    return (alphas[0] * dir_left + t + alphas[1] * dir_right) / 2.0;
-}
+        Eigen::Vector3d dir_left = (leftToRight.so3() * dirLeft).normalized(),
+                dir_right = dirRight.normalized(),
+                t = leftToRight.translation();
+        Eigen::Matrix<double, 3, 2> A;
+        A.col(0) = dir_left;
+        A.col(1) = -dir_right;
+        Eigen::Vector3d b = -leftToRight.translation();
+        Eigen::Vector2d alphas = A.fullPivHouseholderQr().solve(b);
 
-    void triangulate(const Eigen::Matrix3d &bifocal_tensor,
-                     const Eigen::Matrix3d &rotation_matrix,
-                     const Eigen::Matrix3d &translation_matrix,
-                     const scene::HomogenousImagePoint &left_keypoint,
-                     const scene::HomogenousImagePoint &right_keypoint,
-                     scene::HomogenousWorldPoint &left_backprojected,
-                     scene::HomogenousWorldPoint &right_backprojected,
-                     const Eigen::VectorXd &distortion_coefficients,
-                     const Eigen::Matrix3d &calibration,
-    double* reproj_error) {
+
+        return (alphas[0] * dir_left + t + alphas[1] * dir_right) / 2.0;
+    }
+
+    void triangulate2(const Eigen::Matrix3d &bifocal_tensor,
+                      const Eigen::Matrix3d &rotation_matrix,
+                      const Eigen::Matrix3d &translation_matrix,
+                      const scene::HomogenousImagePoint &left_keypoint,
+                      const scene::HomogenousImagePoint &right_keypoint,
+                      scene::HomogenousWorldPoint &left_backprojected,
+                      scene::HomogenousWorldPoint &right_backprojected,
+                      const Eigen::VectorXd &distortion_coefficients,
+                      const Eigen::Matrix3d &calibration,
+                      double *reproj_error) {
 
 #if 1
 
 
-
         Eigen::FullPivHouseholderQR<Eigen::Matrix3d> calibrationQR(calibration);
 
-        Eigen::Vector2d distorted_keypoint_left = utils::distortion_problem::distortion<double>(left_keypoint.hnormalized(), distortion_coefficients),
-                distorted_keypoint_right = utils::distortion_problem::distortion<double>(right_keypoint.hnormalized(), distortion_coefficients);
+        Eigen::Vector2d distorted_keypoint_left = utils::distortion_problem::distortion<double>(
+                left_keypoint.hnormalized(), distortion_coefficients),
+                distorted_keypoint_right = utils::distortion_problem::distortion<double>(right_keypoint.hnormalized(),
+                                                                                         distortion_coefficients);
 
         Eigen::Vector2d distorted_curve_left, distorted_curve_right;
-        double expected_error = points_on_curves(bifocal_tensor, distortion_coefficients, distorted_keypoint_left, distorted_curve_right, distorted_curve_left, distorted_curve_right);
+        double expected_error = points_on_curves(bifocal_tensor, distortion_coefficients, distorted_keypoint_left,
+                                                 distorted_curve_right, distorted_curve_left, distorted_curve_right);
 
         // XXX: taking left ray as point on curve corresponding to right's point epipolar line
-        Eigen::Vector3d left_ray = calibrationQR.solve(utils::distortion_problem::undistortion<double>(distorted_curve_left, distortion_coefficients).homogeneous()).normalized(),
+        Eigen::Vector3d left_ray = calibrationQR.solve(
+                utils::distortion_problem::undistortion<double>(distorted_curve_left,
+                                                                distortion_coefficients).homogeneous()).normalized(),
                 right_ray = calibrationQR.solve(right_keypoint).normalized();
-        double left_error_initial = (utils::distortion_problem::distortion<double>((calibration * left_ray).hnormalized(), distortion_coefficients) - distorted_keypoint_left).squaredNorm();
-        double right_error_initial = (utils::distortion_problem::distortion<double>((calibration * right_ray).hnormalized(), distortion_coefficients) - distorted_keypoint_right).squaredNorm();
+        double left_error_initial = (
+                utils::distortion_problem::distortion<double>((calibration * left_ray).hnormalized(),
+                                                              distortion_coefficients) -
+                distorted_keypoint_left).squaredNorm();
+        double right_error_initial = (
+                utils::distortion_problem::distortion<double>((calibration * right_ray).hnormalized(),
+                                                              distortion_coefficients) -
+                distorted_keypoint_right).squaredNorm();
         //CHECK_LT(left_error_initial, 2.0*expected_error) << "Left ray error mismatch";
         //CHECK_LT(right_error_initial, 1e-5) << "Right ray error mismatch";
 
@@ -222,8 +249,12 @@ namespace utils {
 
 
         const Eigen::Vector3d pt_init = triangulate(leftToRight, left_ray, right_ray);
-        double left_error_lsq = (utils::distortion_problem::distortion<double>((calibration * (leftToRight.inverse() * pt_init)).hnormalized(), distortion_coefficients) - distorted_keypoint_left).squaredNorm();
-        double right_error_lsq = (utils::distortion_problem::distortion<double>((calibration * pt_init).hnormalized(), distortion_coefficients) - distorted_keypoint_right).squaredNorm();
+        double left_error_lsq = (utils::distortion_problem::distortion<double>(
+                (calibration * (leftToRight.inverse() * pt_init)).hnormalized(), distortion_coefficients) -
+                                 distorted_keypoint_left).squaredNorm();
+        double right_error_lsq = (utils::distortion_problem::distortion<double>((calibration * pt_init).hnormalized(),
+                                                                                distortion_coefficients) -
+                                  distorted_keypoint_right).squaredNorm();
         //CHECK_LT(left_error_lsq, 10.0*expected_error) << "Left point LSQ-solution error mismatch";
         //CHECK_LT(right_error_lsq, 10.0*expected_error) << "Right point LSQ-solution error mismatch";
 
@@ -258,8 +289,12 @@ namespace utils {
             *reproj_error = std::sqrt(summary.final_cost);
 
         const Eigen::Vector3d pt_nnls = leftToRight * left_backprojected.head<3>();
-        double left_error_nnls = (utils::distortion_problem::distortion<double>((calibration * (leftToRight.inverse() * pt_nnls)).hnormalized(), distortion_coefficients) - distorted_keypoint_left).squaredNorm();
-        double right_error_nnls = (utils::distortion_problem::distortion<double>((calibration * pt_nnls).hnormalized(), distortion_coefficients) - distorted_keypoint_right).squaredNorm();
+        double left_error_nnls = (utils::distortion_problem::distortion<double>(
+                (calibration * (leftToRight.inverse() * pt_nnls)).hnormalized(), distortion_coefficients) -
+                                  distorted_keypoint_left).squaredNorm();
+        double right_error_nnls = (utils::distortion_problem::distortion<double>((calibration * pt_nnls).hnormalized(),
+                                                                                 distortion_coefficients) -
+                                   distorted_keypoint_right).squaredNorm();
         //CHECK_LT(left_error_nnls, 10.0*expected_error) << "Left point NNLS-solution error mismatch";
         //CHECK_LT(right_error_nnls, 10.0*expected_error) << "Right point NNLS-solution error mismatch";
 

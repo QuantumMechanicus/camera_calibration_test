@@ -566,7 +566,7 @@ namespace estimators {
         int mrows[10] = {32, 31, 30, 29, 28, 25, 22, 21, 20, 19};
         int arows[10] = {6, 7, 9, 10, 11, 12, 13, 14, 15, 16};
 
-        Eigen::Matrix<double, 16, 16> A;
+        Eigen::Matrix<long double, 16, 16> A;
         A.setZero();
         A(0, 1) = 1;
         A(1, 4) = 1;
@@ -580,12 +580,12 @@ namespace estimators {
 
             }
 
-        Eigen::EigenSolver<Eigen::Matrix<double, 16, 16> > eigen_solver(A);
+        Eigen::EigenSolver<Eigen::Matrix<long double, 16, 16> > eigen_solver(A);
 
 
         auto V = eigen_solver.eigenvectors();
         auto sol = (V.template block<3, 16>(1, 0) *
-                    Eigen::DiagonalMatrix<std::complex<double>, 16>(
+                    Eigen::DiagonalMatrix<std::complex<long double>, 16>(
                             V.template block<1, 16>(0, 0).cwiseInverse())).eval();
         sol.row(0).swap(sol.row(2));
         FundamentalMatricesAndDistortionCoefficients res;
@@ -639,25 +639,30 @@ namespace estimators {
         Eigen::Matrix<double, 15, 8> C;
         Eigen::Matrix<double, 8, 15> Cfm;
 
+        auto u2dsqsum = u2d.row(0).cwiseAbs2() + u2d.row(1).cwiseAbs2();
+        auto u1dsqsum = u1d.row(0).cwiseAbs2() + u1d.row(1).cwiseAbs2();
+
+
         C.row(0) = u1d.row(0).cwiseProduct(u2d.row(0));
         C.row(1) = u1d.row(0).cwiseProduct(u2d.row(1));
         C.row(2) = u1d.row(1).cwiseProduct(u2d.row(0));
         C.row(3) = u1d.row(1).cwiseProduct(u2d.row(1));
-        C.row(4) = u1d.row(0).cwiseProduct(u2d.row(0).cwiseProduct(u2d.row(0)) + u2d.row(1).cwiseProduct(u2d.row(1)));
+        C.row(4) = u1d.row(0).cwiseProduct(u2dsqsum);
         C.row(5) = u1d.row(0);
-        C.row(6) = u1d.row(1).cwiseProduct(u2d.row(0).cwiseProduct(u2d.row(0)) + u2d.row(1).cwiseProduct(u2d.row(1)));
+        C.row(6) = u1d.row(1).cwiseProduct(u2dsqsum);
         C.row(7) = u1d.row(1);
-        C.row(8) = u2d.row(0).cwiseProduct(u1d.row(0).cwiseProduct(u1d.row(0)) + u1d.row(1).cwiseProduct(u1d.row(1)));
-        C.row(9) = u2d.row(1).cwiseProduct(u1d.row(0).cwiseProduct(u1d.row(0)) + u1d.row(1).cwiseProduct(u1d.row(1)));
-        C.row(10) = (u2d.row(0).cwiseProduct(u2d.row(0)) + u2d.row(1).cwiseProduct(u2d.row(1))).cwiseProduct(
-                u1d.row(0).cwiseProduct(u1d.row(0)) + u1d.row(1).cwiseProduct(u1d.row(1)));
+        C.row(8) = u2d.row(0).cwiseProduct(u1dsqsum);
+        C.row(9) = u2d.row(1).cwiseProduct(u1dsqsum);
+        C.row(10) = (u2dsqsum).cwiseProduct(
+                u1dsqsum);
         C.row(11) = u2d.row(0);
         C.row(12) = u2d.row(1);
-        C.row(13) = (u2d.row(0).cwiseProduct(u2d.row(0)) + u2d.row(1).cwiseProduct(u2d.row(1))) +
-                    (u1d.row(0).cwiseProduct(u1d.row(0)) + u1d.row(1).cwiseProduct(u1d.row(1)));
+        C.row(13) = (u2dsqsum) +
+                    (u1dsqsum);
         C.row(14) = Eigen::Matrix<double, 1, 8>::Ones();
 
         Cfm = C.transpose();
+        
         Eigen::FullPivHouseholderQR<Eigen::Matrix<double, 8, 8>> qr(Cfm.template block<8, 8>(0, 0));
 
         Eigen::Matrix<double, 8, 7> G;

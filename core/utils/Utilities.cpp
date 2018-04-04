@@ -9,7 +9,7 @@ namespace utils {
 
         double estimateQuantile(std::vector<double> errors,
                                 double expected_percent_of_inliers) {
-            int num = int(errors.size() * expected_percent_of_inliers) ;
+            int num = int(errors.size() * expected_percent_of_inliers);
 
             std::sort(errors.begin(), errors.end());
             double quantile = errors[num];
@@ -143,18 +143,24 @@ namespace utils {
                                                                                                                     left_residuals,
                                                                                                                     right_residuals,
                                                                                                                     image_r);
+            double sum_of_sq = 0;
             for (std::size_t k = 0; k < u1d.cols(); ++k) {
                 errors[k] = std::abs(left_residuals[k]) + std::abs(right_residuals[k]);
+
             }
             double quantile = estimateQuantile(errors, expected_percent_of_inliers);
             double interval = estimateConfidenceInterval(quantile, expected_percent_of_inliers);
             inliers_indices.resize(0);
-
+            int count = 0;
             for (size_t k = 0; k < u1d.cols(); ++k) {
                 if (errors[k] < interval) {
+                    ++count;
+                    sum_of_sq += left_residuals[k]*left_residuals[k] + right_residuals[k]*right_residuals[k];
                     inliers_indices.push_back(k);
                 }
             }
+            std::cout << count << std::endl;
+            std::cout << "Error per inl: " << std::sqrt(sum_of_sq/double(count)) << std::endl;
             std::cout << "Quant: " << quantile << std::endl;
             std::cout << "Inter: " << interval << std::endl;
 

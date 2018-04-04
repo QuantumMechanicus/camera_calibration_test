@@ -39,7 +39,7 @@ namespace non_linear_optimization {
         calibration_matrix(1, 2) = pp_ptr[1];
         std::cout << *focal_ptr << " " << focal_length_ << " Check" << std::endl;
         scene::StdVector<scene::WorldPoints> wp(number_of_pairs_);
-        scene::StdVector<scene::ImagePoints>  i1d(number_of_pairs_), i2d(number_of_pairs_);
+        scene::StdVector<scene::ImagePoints> i1d(number_of_pairs_), i2d(number_of_pairs_);
         for (size_t kth_pair = 0; kth_pair < number_of_pairs_; ++kth_pair) {
             auto &kth_translation = translations_[kth_pair];
             auto &kth_rotation = rotations_[kth_pair];
@@ -166,12 +166,12 @@ namespace non_linear_optimization {
         scene::ImagePoint center(w / 2, h / 2);
         double fov[FOVS];
         scene::ImagePoint points[FOVS][2] = {
-                {Eigen::Vector2d(0, 0),     Eigen::Vector2d(w, h)},
-                {Eigen::Vector2d(0, h / 2), Eigen::Vector2d(w, h / 2)},
-                {Eigen::Vector2d(w / 2, 0), Eigen::Vector2d(w / 2, h)},
-                {Eigen::Vector2d(444, h/2), Eigen::Vector2d(6486, h/2)},
-                {Eigen::Vector2d(35, h/2), Eigen::Vector2d(6672, h/2)},
-                {Eigen::Vector2d(176, h/2), Eigen::Vector2d(6813, h/2)}
+                {Eigen::Vector2d(0, 0),       Eigen::Vector2d(w, h)},
+                {Eigen::Vector2d(0, h / 2),   Eigen::Vector2d(w, h / 2)},
+                {Eigen::Vector2d(w / 2, 0),   Eigen::Vector2d(w / 2, h)},
+                {Eigen::Vector2d(444, h / 2), Eigen::Vector2d(6486, h / 2)},
+                {Eigen::Vector2d(35, h / 2),  Eigen::Vector2d(6672, h / 2)},
+                {Eigen::Vector2d(176, h / 2), Eigen::Vector2d(6813, h / 2)}
         };
 
         std::string tag[FOVS] = {
@@ -179,12 +179,12 @@ namespace non_linear_optimization {
                 "HFOV",
                 "VFOV",
                 "MAGICA",
-                        "MAGICB",
-                        "MAGICC"
+                "MAGICB",
+                "MAGICC"
         };
 
-        std::cout <<"Cal mat " << calibration_matrix << std::endl;
-        calibration_matrix(0,0)=calibration_matrix(1,1) = *focal_ptr;
+        std::cout << "Cal mat " << calibration_matrix << std::endl;
+        calibration_matrix(0, 0) = calibration_matrix(1, 1) = *focal_ptr;
 
         for (int i = 0; i < FOVS; ++i) {
             auto undistorted1 = utils::distortion_problem::undistortion<double>((points[i][0] - center) / r, lambdas_);
@@ -208,17 +208,47 @@ namespace non_linear_optimization {
             fundamental_matrices_[kth_pair] =
                     calibration_matrix.inverse().transpose() * utils::screw_hat(translations_[kth_pair]) *
                     rotations_[kth_pair].matrix() * calibration_matrix.inverse();
-
-
-
+            auto &kth_fundamental_matrix = fundamental_matrices_[kth_pair];
+            Eigen::JacobiSVD<Eigen::Matrix3d> fmatrix_svd(kth_fundamental_matrix,
+                                                          Eigen::ComputeFullU | Eigen::ComputeFullV);
+            Eigen::Vector3d singular_values = fmatrix_svd.singularValues();
+            singular_values[2] = 0.0;
+            kth_fundamental_matrix = fmatrix_svd.matrixU() * singular_values.asDiagonal() *
+                                     fmatrix_svd.matrixV().transpose();
+            kth_fundamental_matrix /= kth_fundamental_matrix(2, 2);
+            
             std::cout << "Save: " << kth_pair << std::endl;
-            utils::saveMatrix("./left_inl_pair_"+std::to_string(kth_pair), i1d[kth_pair], true);
-            utils::saveMatrix("./right_inl_pair_"+std::to_string(kth_pair), i2d[kth_pair], true);
-            utils::saveMatrix("./triang_"+ std::to_string(kth_pair), wp[kth_pair], true);
+            utils::saveMatrix("./left_inl_pair_" + std::to_string(kth_pair), i1d[kth_pair], true);
+            utils::saveMatrix("./right_inl_pair_" + std::to_string(kth_pair), i2d[kth_pair], true);
+            scene::ImagePoints i1un, i2un;
+            i1un = i1d[kth_pair];
+            i2un = i2d[kth_pair];
+            std::cout << "Lambdas: " << lambdas_.transpose() << std::endl;
+            double d = std::max(w, h) / 2.0;
+            double dr = d / r;
+            double alpha = utils::distortion_problem::undistortionDenominator<double>(dr, lambdas_.cast<double>());
+
+            for (size_t ll = 0; ll < i1d[kth_pair].cols(); ++ll) {
+                i1un.col(ll) = alpha*r*utils::distortion_problem::undistortion<double>(i1d[kth_pair].col(ll), lambdas_) + center;
+                i2un.col(ll) = alpha*r*utils::distortion_problem::undistortion<double>(i2d[kth_pair].col(ll), lambdas_) + center;
+
+            }
+            Eigen::Matrix3d recF = fundamental_matrices_[kth_pair];
+            Eigen::Matrix3d remove_center, remove_scale;
+            remove_center << 1, 0, -w/2,
+                             0, 1, -h/2,
+                             0, 0, 1;
+            remove_scale << 1.0/(alpha*r), 0, 0,
+                            0, 1.0/(alpha*r), 0,
+                            0, 0, 1;
+            recF = remove_center.transpose()*remove_scale.transpose()*recF*remove_scale*remove_center;
+            utils::saveMatrix("./left_inl_pair_und" + std::to_string(kth_pair), i1un, true);
+            utils::saveMatrix("./right_inl_pair_und" + std::to_string(kth_pair), i2un, true);
+            utils::saveMatrix("./triang_" + std::to_string(kth_pair), wp[kth_pair], true);
+            utils::saveMatrix("./rec_F_" + std::to_string(kth_pair), recF, true);
             //LOG(INFO) << "Triangulated points optimized, " << kth_pair <<"-th\n\n" << wp[kth_pair] << std::endl << std::endl;
 
         }
-
 
 
     }
@@ -228,8 +258,7 @@ namespace non_linear_optimization {
         result = lambdas_;
     }
 
-    void GlobalNonLinearEstimator::getEstimationImpl(intrinsics::FocalLength &result)
-    {
+    void GlobalNonLinearEstimator::getEstimationImpl(intrinsics::FocalLength &result) {
         result = focal_length_;
     }
 
@@ -252,13 +281,14 @@ namespace non_linear_optimization {
         return is_estimated_;
     }
 
-    GlobalNonLinearEstimator::GlobalNonLinearEstimator(const scene::StdVector<scene::ImagePoints> &left_pictures_keypoints,
-                                                       const scene::StdVector<scene::ImagePoints> &right_pictures_keypoints,
-                                                       const Eigen::VectorXd &lambdas,
-                                                       const scene::StdVector<Sophus::SO3d> &rotations,
-                                                       const scene::StdVector<Eigen::Vector3d> &translations,
-                                                       double focal_length, double ppx, double ppy,
-                                                       GlobalNonLinearEstimatorOptions options)
+    GlobalNonLinearEstimator::GlobalNonLinearEstimator(
+            const scene::StdVector<scene::ImagePoints> &left_pictures_keypoints,
+            const scene::StdVector<scene::ImagePoints> &right_pictures_keypoints,
+            const Eigen::VectorXd &lambdas,
+            const scene::StdVector<Sophus::SO3d> &rotations,
+            const scene::StdVector<Eigen::Vector3d> &translations,
+            double focal_length, double ppx, double ppy,
+            GlobalNonLinearEstimatorOptions options)
             : rotations_((rotations)), translations_((translations)),
               focal_length_(focal_length), ppx_(ppx), ppy_(ppy),
               lambdas_((lambdas)), left_pictures_keypoints_((left_pictures_keypoints)),

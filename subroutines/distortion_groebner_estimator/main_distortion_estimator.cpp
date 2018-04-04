@@ -66,6 +66,12 @@ int main(int argc, char *argv[]) {
         stereo_pair.estimateRightCamera(groebner_estimator);
         stereo_pair.estimateFundamentalMatrix(groebner_estimator);
 
+        std::vector<size_t> inl;
+
+        utils::distortion_problem::findInliers(stereo_pair.getLeftKeypoints(), stereo_pair.getRightKeypoints(),
+                                               stereo_pair.getLeftIntrinsicsPointer()->getDistortionCoefficients(),
+                                               stereo_pair.getFundamentalMatrix(), 0.1, inl,
+                                               r);
 
         stereo_pair.denormalizeLeftKeypoints();
         stereo_pair.denormalizeRightKeypoints();
@@ -77,6 +83,8 @@ int main(int argc, char *argv[]) {
 
         std::cout << std::endl << "Estimation done in " << std::setprecision(5) << duration / 1000.0 << " seconds"
                   << std::endl;
+
+
 
         //TODO add inliers list
     } else {

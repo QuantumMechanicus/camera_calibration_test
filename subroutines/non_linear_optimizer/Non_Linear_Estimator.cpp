@@ -100,6 +100,7 @@ namespace non_linear_optimization {
             ceres::Solver::Summary summary;
             ceres::Solve(options, &problem, &summary);
             std::cout << summary.BriefReport() << std::endl;
+            std::cout << "Error per inl: " << std::sqrt(summary.final_cost/residuals) << " " << residuals << std::endl;
             std::cout << lambdas_ << " --- estimated coefficients" << std::endl;
 
         }

@@ -96,7 +96,22 @@ namespace non_linear_optimization {
                                    utils::distortion_problem::undistortion<double>(i1d[kth_pair].col(k),
                                                                                    lambdas_),
                                    utils::distortion_problem::undistortion<double>(i2d[kth_pair].col(k), lambdas_),
-                                   left_bprj, right_bprj, lambdas_.transpose(), calibration_matrix);
+                                   left_bprj, right_bprj, lambdas_, calibration_matrix);
+                assert(left_bprj[2] > 0 && "World point behind camera?");
+                LOG_IF(WARNING, left_bprj[2] < 0 ) << "WP behind camera: " << left_bprj[0] << " " << left_bprj[1] << " " << left_bprj[2];
+                if (left_bprj[2] < 0)
+                {
+                    std::cout <<"STARTED STANGE THINGS:\n";
+                    auto test = utils::chiralityTest(kth_fm, kth_rotation.matrix(),kth_translation_matrix,
+                                                     utils::distortion_problem::undistortion<double>(i1d[kth_pair].col(k),
+                                                                                                     lambdas_),
+                                                     utils::distortion_problem::undistortion<double>(i2d[kth_pair].col(k),
+                                                                                                     lambdas_), lambdas_, calibration_matrix,
+                                                     nullptr,true);
+                    std::cout << left_bprj.transpose() << " Tr left point" << std::endl;
+                    std::cout << right_bprj.transpose() << " Tr right point" << std::endl;
+                    std::cout << "STRANGE TEST " << test << std::endl;
+                }
                 wp[kth_pair].col(k) = left_bprj;
 
 
@@ -132,7 +147,9 @@ namespace non_linear_optimization {
                 double *inputs[] = {lambda_ptr, focal_ptr, pp_ptr, tr_ptr, rot_ptr, wp_ptr};
                 Eigen::Vector4d error;
                 fun->Evaluate(inputs, error.data(), nullptr);
-                std::cout << *wp_ptr << std::endl;
+                LOG(INFO) << "World point: " << wp[kth_pair].col(k);
+                LOG(INFO) << "World point2: " << wp_ptr[0] << " " << wp_ptr[1] << " " << wp_ptr[2];
+                LOG(INFO) << "World point3: " << left_bprj[0] << " " << left_bprj[1] << " " << left_bprj[2];
                 LOG(INFO) << "Functor returns error: " << error.transpose();
             }
 
@@ -143,7 +160,6 @@ namespace non_linear_optimization {
         options.max_num_iterations = 500;
         options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
         options.num_threads = 8;
-        options.num_linear_solver_threads = 8;
         options.function_tolerance = 1e-16;
         options.parameter_tolerance = 1e-16;
         options.minimizer_progress_to_stdout = true;

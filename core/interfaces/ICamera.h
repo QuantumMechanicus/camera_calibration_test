@@ -5,8 +5,8 @@
 #ifndef CAMERA_CALIBRATION_ICAMERA_H
 #define CAMERA_CALIBRATION_ICAMERA_H
 
-#include "Sophus/sophus/so3.hpp"
-#include "Sophus/sophus/se3.hpp"
+#include "sophus/so3.hpp"
+#include "sophus/se3.hpp"
 #include "Abstract_Estimator.h"
 
 namespace scene {

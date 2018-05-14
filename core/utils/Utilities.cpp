@@ -97,7 +97,7 @@ namespace utils {
                                                                                        distortion_coefficients),
                                                                   undistortion<double>(u2d.col(i),
                                                                                        distortion_coefficients),
-                                                                  distortion_coefficients, calibration, &err) ? 1 : 0;
+                                                                  distortion_coefficients, calibration, &err);
 
                                       double px_err = err * image_r;
                                       if (!validity[i]) {
@@ -119,7 +119,7 @@ namespace utils {
 #endif
 
             for (size_t k = 0; k < u1d.cols(); ++k) {
-                if (validity[k]) {
+                if (validity[k] != 0) {
                     inliers_indices.push_back(k);
                 }
             }

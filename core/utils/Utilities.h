@@ -425,7 +425,11 @@ namespace utils {
         bool operator()(const T *point_ptr, T *residuals) const {
             Eigen::Map<const Eigen::Matrix<T, 3, 1>> point(point_ptr);
             Eigen::Map<Eigen::Matrix<T, 4, 1>> rs(residuals);
-
+            if (point(2) < T(0))
+            {
+                rs =  T(std::numeric_limits<double>::max())*Eigen::Matrix<T, 4, 1>::Ones();
+                return false;
+            }
             rs.template head<2>() =
                     distortion_problem::distortion<T>((calibration.template cast<T>() * point).hnormalized(),
                                                       distortion_c.template cast<T>()) -
@@ -472,8 +476,8 @@ namespace utils {
                             double* reproj_error = nullptr) {
 
 
-        auto left_backprojected_h = left_backprojected.homogeneous().eval();
-        auto right_backprojected_h = right_backprojected.homogeneous().eval();
+        scene::HomogenousWorldPoint left_backprojected_h;
+        scene::HomogenousWorldPoint right_backprojected_h;
 
 
         triangulate2(bifocal_tensor, rotation_matrix, translation_matrix, left_keypoint.homogeneous(),
@@ -484,22 +488,32 @@ namespace utils {
         //LOG(INFO) << left_backprojected(2) << " ! " << right_backprojected(2);
     }
 
-    inline bool
+    inline int
     chiralityTest(const Eigen::Matrix3d &fundamental_matrix,
                   const Eigen::Matrix3d &rotation_matrix,
                   const Eigen::Matrix3d &translation_matrix,
                   const scene::ImagePoint &left_keypoint, const scene::ImagePoint &right_keypoint,
                   const Eigen::VectorXd &distortion_coefficients = Eigen::VectorXd(),
-                  const Eigen::Matrix3d &calibration = Eigen::Matrix3d::Zero(), double *reproj_error = nullptr) {
-        scene::HomogenousWorldPoint left_backprojected, right_backprojected;
+                  const Eigen::Matrix3d &calibration = Eigen::Matrix3d::Zero(), double *reproj_error = nullptr, bool cout_res=false) {
+        scene::HomogenousWorldPoint left_backprojected_h, right_backprojected_h;
 
         triangulate2(fundamental_matrix, rotation_matrix, translation_matrix, left_keypoint.homogeneous(),
                     right_keypoint.homogeneous(),
-                    left_backprojected, right_backprojected, distortion_coefficients, calibration, reproj_error);
-        bool c1 = left_backprojected[2] * left_backprojected[3] > 0;
-        bool c2 = right_backprojected[2] * right_backprojected[3] > 0;
+                    left_backprojected_h, right_backprojected_h, distortion_coefficients, calibration, reproj_error);
+        scene::WorldPoint left_backprojected = left_backprojected_h.hnormalized();
+        scene::WorldPoint right_backprojected = right_backprojected_h.hnormalized();
+        bool c1 = left_backprojected[2] > 0;
+        bool c2 = right_backprojected[2]  > 0;
+        if (cout_res)
+        {
+            std::cout << left_backprojected.transpose() << " Chir left point" << std::endl;
+            std::cout << right_backprojected.transpose() << " Chir right point" << std::endl;
+        }
         LOG(INFO) <<c1 << " ! chirality " << c2;
-        return (c1 && c2);
+        if (c1 && c2)
+            return 1;
+        else return 0;
+
     }
 }
 #endif //CAMERA_CALIBRATION_UTILITIES_H

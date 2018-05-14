@@ -48,6 +48,15 @@ namespace non_linear_optimization {
             Vector3T translation = Eigen::Map<const Vector3T>(translation_ptr);
             Eigen::Map<Eigen::Matrix<T, 4, 1>> residual(residuals);
 
+            if (wp(2) < T(0.0)){
+                residual = T(std::numeric_limits<double>::max())*Eigen::Matrix<T, 4, 1>::Ones();
+
+                LOG(INFO) << "____It happend____\n";
+                LOG(INFO) << wp;
+                LOG(INFO) << "_________________"<<std::endl;
+                return false;
+            }
+
             calibration(0, 0) = calibration(1, 1) = *focal_length_ptr;
             calibration(0, 2) = principal_point_ptr[0];
             calibration(1, 2) = principal_point_ptr[1];
@@ -59,8 +68,7 @@ namespace non_linear_optimization {
 
             residual.template head<2>() = (ldp - left_point_.cast<T>()) * image_radius_;
             residual.template tail<2>() = (rdp - right_point_.cast<T>()) * image_radius_;
-            if (wp(2) < T(0.0))
-                residual = T(std::numeric_limits<double>::max())*Eigen::Matrix<T, 4, 1>::Ones();
+
             return true;
         }
     };

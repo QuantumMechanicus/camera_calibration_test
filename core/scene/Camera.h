@@ -7,8 +7,8 @@
 
 #include <memory>
 #include <utility>
-#include "Sophus/sophus/so3.hpp"
-#include "Sophus/sophus/se3.hpp"
+#include "sophus/so3.hpp"
+#include "sophus/se3.hpp"
 #include "Intrinsics.h"
 #include "../interfaces/ICamera.h"
 #include "../interfaces/INode.h"

@@ -2,7 +2,7 @@
 
 
 
-camera_name=C
+camera_name=B
 dir=/home/danielbord/CLionProjects/AutomaticSolver/pipeline/points_correspondence/${camera_name}
 out_dir=/home/danielbord/CLionProjects/camcalbr/pipeline/bin/${camera_name}_data/
 keypoints_left=${out_dir}path.keypoints.left
@@ -55,7 +55,7 @@ sed -i '$ d' $temp
 sed -ri "s|$|.data|" $temp
 sed -ri "s|^|--d $out_dir|" $temp
 
-paste $temp| sed 's#^\(.*\)$#./bin/groebner_automatic_solver \1 --i 100000#g' | parallel
+paste $temp| sed 's#^\(.*\)$#./bin/groebner_automatic_solver \1 --i 200000#g' | parallel
 
 rm $temp
 
